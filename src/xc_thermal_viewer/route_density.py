@@ -17,6 +17,7 @@ import numpy as np
 import pandas as pd
 import pyarrow.parquet as pq
 
+from .fingerprint import file_identity
 from .route_index import available_archives, route_cache_path
 from .thermal_index import _check_cancel
 from .thermal_time import BASE_M, TimeGrid, load_grids, save_grids
@@ -51,22 +52,29 @@ def _inputs(disc):
     }
 
 
+def _require_current_runs(disc):
+    """Refuse to bin Vilpellet runs written before the cleaned archive they label.
+
+    Checked only when preparing: the read path must not depend on modification
+    times, which a copy to another computer need not preserve.
+    """
+    paths = _inputs(disc)
+    if (
+        min(paths["runs"].stat().st_mtime_ns, paths["coverage"].stat().st_mtime_ns)
+        < paths["fixes"].stat().st_mtime_ns
+    ):
+        raise ValueError(f"{disc.name}: Vilpellet runs predate the cleaned archive")
+
+
 def source_signature(disciplines):
     """Bind saved seconds to the archives, origins, saved runs and calculation."""
     parts = [VERSION, BASE_M]
     for disc in disciplines:
-        root = disc.config().derived_dir
-        if (root / ".run_incomplete").exists():
+        config = disc.config()
+        if (config.derived_dir / ".run_incomplete").exists():
             raise ValueError(f"{disc.name}: preprocessing is incomplete")
-        paths = _inputs(disc)
-        for path in paths.values():
-            stat = path.stat()
-            parts.append((str(path.resolve()), stat.st_size, stat.st_mtime_ns))
-        if (
-            min(paths["runs"].stat().st_mtime_ns, paths["coverage"].stat().st_mtime_ns)
-            < paths["fixes"].stat().st_mtime_ns
-        ):
-            raise ValueError(f"{disc.name}: Vilpellet runs predate the cleaned archive")
+        for path in _inputs(disc).values():
+            parts.append(file_identity(path, config.data_root))
     return hashlib.sha256(json.dumps(parts).encode()).hexdigest()
 
 
@@ -107,6 +115,8 @@ def prepare_density(
         raise FileNotFoundError("Connect the processed flight archive")
     path = density_path(disciplines) if path is None else Path(path)
     signature = source_signature(disciplines)
+    for disc in disciplines:
+        _require_current_runs(disc)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.with_suffix(".lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)

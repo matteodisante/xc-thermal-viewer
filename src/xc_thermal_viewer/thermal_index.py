@@ -29,6 +29,7 @@ from .core.disciplines import DISCIPLINES, Discipline
 from .core.igc import first_fix
 from .core.naming import igc_path
 from .core.preproc.enu import LocalFrame
+from .fingerprint import file_identity
 from .geodesy import enu_to_geodetic
 from .geography import FRANCE_EXTENT, TERRAIN_ORDER, classify_terrain
 from .thermal_geometry import CELL_M, ThermalCell, cell_visits, climb_edges, project
@@ -87,20 +88,23 @@ def _check_cancel(cancel: Event | None) -> None:
 
 
 def archive_signature(disciplines: list[Discipline]) -> str:
-    """Fingerprint archive paths, geometry/metadata versions and ground policy."""
+    """Fingerprint the archive inputs, geometry/metadata versions and ground policy.
+
+    Portable (see :mod:`xc_thermal_viewer.fingerprint`): bump ``INDEX_VERSION`` when
+    the census code changes what it saves.
+    """
     parts: list = [INDEX_VERSION]
     cfg = load_preproc_config()
     parts.extend([cfg.fix.min_altitude_m, cfg.fix.max_altitude_m])
     for disc in disciplines:
         config = disc.config()
-        parts.append(str(config.igc_dir.resolve()))
+        parts.append(disc.name)
         for path in (
             config.catalog_path,
             config.derived_dir / "fixes.parquet",
             config.derived_dir / "flights_meta.parquet",
         ):
-            stat = path.stat()
-            parts.append((str(path.resolve()), stat.st_size, stat.st_mtime_ns))
+            parts.append(file_identity(path, config.data_root))
     return hashlib.sha256(json.dumps(parts).encode()).hexdigest()
 
 

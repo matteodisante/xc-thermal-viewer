@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 
 from .core.vilpellet.config import DEFAULT_VILPELLET_CONFIG_PATH
+from .fingerprint import file_identity
 
 if TYPE_CHECKING:
     from .thermal_index import ThermalIndex
@@ -20,27 +21,25 @@ if TYPE_CHECKING:
 EDGE_COLUMNS = [f"{axis}{end}" for end in (0, 1) for axis in ("x", "y", "z", "utc")]
 
 
+#: Bump when the decoding or climb extraction code changes (data.py, geodesy.py,
+#: thermal_geometry.py, thermal_index.py or core/vilpellet), so that saved climbs
+#: from the previous code are no longer reused.
+CLIMB_VERSION = 1
+
+
 def segmentation_signature(index: ThermalIndex, source: str) -> str:
-    """Invalidate the climb products when their code, config or census changes."""
-    root = Path(__file__).resolve().parent
-    paths = [
-        Path(__file__).with_name("data.py"),
-        Path(__file__).with_name("thermal_geometry.py"),
-        Path(__file__).with_name("thermal_index.py"),
-        Path(__file__).with_name("geodesy.py"),
-        DEFAULT_VILPELLET_CONFIG_PATH,
-        *sorted((root / "core/vilpellet").glob("*.py")),
-    ]
-    digest = hashlib.sha256()
-    # Geometry and temporal origins belong to the archive signature. A test/custom
-    # index without one still has a stable identity between separate viewer loads.
-    stat = index.path.stat()
-    geometry = (index.signature, str(index.path), stat.st_size, stat.st_mtime_ns)
-    digest.update(json.dumps([1, geometry, source]).encode())
-    for path in paths:
-        digest.update(str(path).encode())
-        digest.update(path.read_bytes() if path.is_file() else b"missing")
-    return digest.hexdigest()
+    """Identify climb products by census, code version and segmentation config.
+
+    Portable (see :mod:`xc_thermal_viewer.fingerprint`): the same data folder gives
+    the same key on any computer.
+    """
+    # A test/custom index without an archive signature is identified by its file.
+    census = index.signature if index.signature else file_identity(index.path)
+    config = Path(DEFAULT_VILPELLET_CONFIG_PATH)
+    settings = file_identity(config) if config.is_file() else "missing"
+    return hashlib.sha256(
+        json.dumps([CLIMB_VERSION, census, source, settings]).encode()
+    ).hexdigest()
 
 
 class ClimbCache:

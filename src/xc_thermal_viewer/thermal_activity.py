@@ -18,6 +18,7 @@ import pyarrow.parquet as pq
 from .core.disciplines import DISCIPLINES
 from .core.preproc.enu import LocalFrame
 from .core.vilpellet import load_vilpellet_config
+from .fingerprint import file_identity
 from .geodesy import enu_to_geodetic
 from .geography import FRANCE_EXTENT
 from .thermal_geometry import CELL_M, continuous_edges, project
@@ -172,9 +173,9 @@ def _validated_products(index):
                 f"Vilpellet flight coverage differs from census for {name}"
             )
         products[name] = runs
+        data_root = DISCIPLINES[name].config().data_root
         for path in (runs, coverage, folder / "model/parameters.json"):
-            stat = path.stat()
-            fingerprint.append([str(path), stat.st_size, stat.st_mtime_ns])
+            fingerprint.append(file_identity(path, data_root))
         fingerprint.append(expected)
     from .thermal_cache import segmentation_signature
 

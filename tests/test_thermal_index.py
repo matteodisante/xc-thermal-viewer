@@ -162,7 +162,9 @@ def test_index_streams_row_groups_once_and_reuses_completed_cache(
     raw.mkdir()
     catalog = tmp_path / "catalog.csv"
     pd.DataFrame({"flight_id": ["a", "b"]}).to_csv(catalog, index=False)
-    config = SimpleNamespace(derived_dir=derived, igc_dir=raw, catalog_path=catalog)
+    config = SimpleNamespace(
+        derived_dir=derived, data_root=tmp_path, igc_dir=raw, catalog_path=catalog
+    )
     monkeypatch.setattr(type(PARAGLIDERS), "config", lambda self: config)
     x0, y0 = project(6, 45)
     ix, iy = int(x0 // 5000), int(y0 // 5000)

@@ -24,7 +24,8 @@ def archive(tmp_path):
     root = tmp_path / "derived"
     root.mkdir()
     disc = SimpleNamespace(
-        name="test", config=lambda: SimpleNamespace(derived_dir=root)
+        name="test",
+        config=lambda: SimpleNamespace(derived_dir=root, data_root=tmp_path),
     )
     fixes = pd.DataFrame(
         {
@@ -135,6 +136,7 @@ def test_scene_dates_match_retained_endpoints_after_trimming(
     disc, root, _ = archive
     cfg = SimpleNamespace(
         derived_dir=root,
+        data_root=tmp_path,
         catalog_path=tmp_path / "catalog.csv",
         igc_dir=tmp_path / "igc",
     )

@@ -6,7 +6,6 @@ import hashlib
 import json
 import sqlite3
 from dataclasses import dataclass
-from pathlib import Path
 from uuid import uuid4
 
 import numpy as np
@@ -53,17 +52,17 @@ GROUP_COLUMNS = [
     "last_departure_utc",
 ]
 
+#: Bump when group_flights.py or route_times.py changes what the catalog saves.
+GROUP_VERSION = 1
+
 
 def _signature(index):
     """Invalidate clocks after changes to the archive, catalog, origins or recovery."""
     sources = [
+        GROUP_VERSION,
         index.signature,
         thermal_index.archive_signature(list(index.disciplines)),
     ]
-    for name in ("group_flights.py", "route_times.py"):
-        sources.append(
-            hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest()
-        )
     return hashlib.sha256(json.dumps(sources).encode()).hexdigest()
 
 

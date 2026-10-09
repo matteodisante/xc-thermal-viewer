@@ -21,6 +21,7 @@ import pyarrow.parquet as pq
 
 from .core.disciplines import DISCIPLINES
 from .core.preproc.enu import LocalFrame
+from .fingerprint import file_identity
 from .geodesy import enu_to_geodetic
 from .geography import FRANCE_EXTENT
 from .thermal_geometry import CELL_M as INDEX_CELL_M
@@ -47,22 +48,19 @@ def route_cache_path(disciplines=None):
 
 
 def archive_signature(disciplines):
-    """Reject incomplete archives and fingerprint geometry, origins and code."""
+    """Reject incomplete archives and fingerprint the inputs and the code version.
+
+    Portable (see :mod:`xc_thermal_viewer.fingerprint`): bump ``VERSION`` when the
+    index code, geodesy.py or thermal_geometry.py changes what is saved.
+    """
     parts = [VERSION]
-    for name in ("geodesy.py", "thermal_geometry.py"):
-        parts.append(
-            hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest()
-        )
     for disc in disciplines:
-        root = disc.config().derived_dir
+        config = disc.config()
+        root = config.derived_dir
         if (root / ".run_incomplete").exists():
             raise ValueError(f"{disc.name}: preprocessing is incomplete")
         for name in ("fixes.parquet", "flights_meta.parquet"):
-            path = root / name
-            stat = path.stat()
-            parts.append(
-                (disc.name, str(path.resolve()), stat.st_size, stat.st_mtime_ns)
-            )
+            parts.append([disc.name, file_identity(root / name, config.data_root)])
     return hashlib.sha256(json.dumps(parts).encode()).hexdigest()
 
 
