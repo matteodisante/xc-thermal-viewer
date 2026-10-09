@@ -62,6 +62,7 @@ class GroupFlights(QWidget):
                 QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
             )
         self._load = QPushButton("Load selected group")
+        self._load.setProperty("emphasis", "primary")
         self._export = QPushButton("Export group CSV")
         self._info, self._howto = help_buttons("groups", self)
         self._status = QLabel(

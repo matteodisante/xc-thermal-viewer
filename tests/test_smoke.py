@@ -39,6 +39,7 @@ def test_every_tab_opens_and_a_track_loads(qapp, data_folder, monkeypatch):
     window = MainWindow()
     window.show()
     qapp.processEvents()
+    assert not window._figure.axes[0].axison
     assert str(data_folder) in window.windowTitle()
     for index in range(window._tabs.count()):
         window._tabs.setCurrentIndex(index)
@@ -48,5 +49,6 @@ def test_every_tab_opens_and_a_track_loads(qapp, data_folder, monkeypatch):
     window._on_flight_chosen(track, PARAGLIDERS, "20311250")
     qapp.processEvents()
     assert window._raw is not None
+    assert window._figure.axes[0].axison
     window.close()
     assert errors == []

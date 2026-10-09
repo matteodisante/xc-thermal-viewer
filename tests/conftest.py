@@ -34,11 +34,13 @@ def qapp():
     qt_widgets = pytest.importorskip("PyQt6.QtWidgets")
 
     from xc_thermal_viewer.app import configure_graphics
+    from xc_thermal_viewer.widgets.theme import apply_theme
 
     app = qt_widgets.QApplication.instance()
     if app is None:
         configure_graphics()
         app = qt_widgets.QApplication([])
+        apply_theme(app)
     yield app
 
 

@@ -120,11 +120,13 @@ def main(argv: list[str] | None = None) -> int:
     from PyQt6.QtWidgets import QApplication, QMessageBox
 
     from .widgets.about import AboutDialog
+    from .widgets.theme import apply_theme
     from .widgets.welcome import WelcomeScreen
 
     app = QApplication(sys.argv[:1])
     app.setOrganizationName("xc-thermal-viewer")
     app.setApplicationName("xc-thermal-viewer")
+    apply_theme(app)
     settings = QSettings()
     welcome = WelcomeScreen()
     window = None

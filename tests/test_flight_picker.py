@@ -145,6 +145,27 @@ def test_data_folder_button_asks_the_window(qapp, monkeypatch):
     assert picker._btn_data_folder.text() == "Choose data folder…"
 
 
+def test_search_stays_clickable_without_scrolling_a_small_sidebar(qapp, monkeypatch):
+    from PyQt6.QtCore import QSize, Qt
+    from PyQt6.QtTest import QTest
+
+    searches = []
+    monkeypatch.setattr(FlightPicker, "_repopulate_filter_combos", lambda self: None)
+    monkeypatch.setattr(FlightPicker, "_on_search", lambda self: searches.append(1))
+    picker = FlightPicker()
+    picker.resize(260, 550)
+    picker.show()
+    qapp.processEvents()
+    assert picker.size() == QSize(260, 550)
+    button = picker._btn_search
+    center = button.mapTo(picker, button.rect().center())
+    assert picker.rect().contains(center)
+    assert picker.childAt(center) is button
+    QTest.mouseClick(button, Qt.MouseButton.LeftButton)
+    assert searches == [1]
+    picker.close()
+
+
 def test_all_catalog_matches_are_selectable_and_verdicts_are_explicit(
     qapp, monkeypatch
 ):

@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, cast
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
 from matplotlib.figure import Figure
 from PyQt6.QtCore import QSize, Qt
-from PyQt6.QtGui import QAction
+from PyQt6.QtGui import QAction, QPalette
 from PyQt6.QtWidgets import (
     QFileDialog,
     QMainWindow,
@@ -129,6 +129,7 @@ class MainWindow(QMainWindow):
         self._map_view.flight_chosen.connect(self._on_flight_chosen_from_map)
 
         self._tabs = QTabWidget()
+        self._tabs.setDocumentMode(True)
         self._tabs.addTab(trajectory_tab, "Trajectory")
         self._tabs.addTab(self._map_view, "Map")
         self._thermal_plane = ThermalPlane()
@@ -142,6 +143,10 @@ class MainWindow(QMainWindow):
         self._sources_methods = SourcesMethods()
         # "&&": a single "&" would underline the next letter as a shortcut.
         self._tabs.addTab(self._sources_methods, "Sources && methods")
+        for index in range(self._tabs.count()):
+            page = self._tabs.widget(index)
+            page.setAutoFillBackground(True)
+            page.setBackgroundRole(QPalette.ColorRole.Base)
         # Links in any Info window open their section of Sources & methods here.
         set_methods_opener(self.show_methods)
         # The map's take-off points are only read from disk the first time this tab is
@@ -160,6 +165,7 @@ class MainWindow(QMainWindow):
         self._map_focus: MapFocus | None = None
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.setHandleWidth(5)
         splitter.addWidget(self._picker)
         splitter.addWidget(self._tabs)
         splitter.setStretchFactor(0, 1)
@@ -449,7 +455,31 @@ class MainWindow(QMainWindow):
         self._has_3d_data = False
 
         if self._raw is None and self._cleaned is None:
-            plotting.center_message(ax, "Pick a flight to plot.", is_3d=is_3d)
+            ax.set_axis_off()
+            write = cast("Axes3D", ax).text2D if is_3d else ax.text
+            write(
+                0.5,
+                0.54,
+                "Choose a flight to begin",
+                transform=ax.transAxes,
+                ha="center",
+                va="bottom",
+                fontsize=16,
+                fontweight="bold",
+                color="#193f4a",
+                wrap=True,
+            )
+            write(
+                0.5,
+                0.47,
+                "Open an IGC file or search\nthe catalog on the left.",
+                transform=ax.transAxes,
+                ha="center",
+                va="top",
+                fontsize=11,
+                color="#627781",
+                linespacing=1.6,
+            )
             self._canvas.draw_idle()
             return
 

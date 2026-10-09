@@ -66,6 +66,7 @@ class ThermalDensity(QWidget):
         self._strength = self._opacity(80, "% density")
         self._info, self._howto = help_buttons("density", self)
         self._reload = QPushButton("Reload data")
+        self._reload.setProperty("emphasis", "primary")
         self._status = QLabel("The climbing-time maps load when this tab opens.")
         self._status.setWordWrap(True)
         self._figure = Figure(figsize=(10, 6), layout="compressed")

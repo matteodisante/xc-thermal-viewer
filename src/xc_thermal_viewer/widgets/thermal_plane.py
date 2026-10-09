@@ -202,6 +202,7 @@ class ThermalPlane(QWidget):
             edit.setCalendarPopup(True)
             edit.setKeyboardTracking(False)
         self._load = QPushButton("Load climb intersections")
+        self._load.setProperty("emphasis", "primary")
         self._cancel = QPushButton("Cancel")
         self._cancel.setEnabled(False)
         self._slider = QSlider(Qt.Orientation.Horizontal)

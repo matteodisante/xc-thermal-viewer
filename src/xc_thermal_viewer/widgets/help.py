@@ -53,6 +53,7 @@ class HelpButton(QPushButton):
         """Build nothing until clicked: no texts, configs or archive reads yet."""
         label, tooltip = LABELS[kind]
         super().__init__(label, parent)
+        self.setProperty("emphasis", "quiet")
         self._topic, self._kind = topic, kind
         self.window_ = None
         self.setAutoDefault(False)

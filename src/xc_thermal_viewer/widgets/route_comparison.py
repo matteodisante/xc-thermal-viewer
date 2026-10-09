@@ -133,6 +133,7 @@ class RouteComparison(QWidget):
             "Distance is measured between the cell centres."
         )
         self._load = QPushButton("Load selected pair")
+        self._load.setProperty("emphasis", "primary")
         self._cancel = QPushButton("Cancel")
         self._cancel.setEnabled(False)
         self._info, self._howto = help_buttons("routes", self)
@@ -229,6 +230,8 @@ class RouteComparison(QWidget):
         self._scene_layout.addWidget(self._placeholder, 3)
         self._scene_layout.addWidget(self._locator, 1)
         self._table = QTableWidget(0, 7)
+        self._table.setAlternatingRowColors(True)
+        self._table.setShowGrid(False)
         self._table.setHorizontalHeaderLabels(
             [
                 "Show / rank",

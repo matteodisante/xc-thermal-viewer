@@ -28,7 +28,9 @@ from PyQt6.QtWidgets import (
     QCompleter,
     QFileDialog,
     QFormLayout,
+    QFrame,
     QGroupBox,
+    QHBoxLayout,
     QHeaderView,
     QLabel,
     QPushButton,
@@ -136,6 +138,10 @@ def _make_searchable_combo() -> QComboBox:
     """An editable combo box with type-ahead, substring-matching completion."""
     combo = QComboBox()
     combo.setEditable(True)
+    combo.setMinimumContentsLength(8)
+    combo.setSizeAdjustPolicy(
+        QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+    )
     combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
     completer = combo.completer()
     if completer is not None:
@@ -176,6 +182,7 @@ class FlightPicker(QWidget):
         # Wrapped, so a long folder name never widens the picker.
         self._data_folder_label = QLabel()
         self._data_folder_label.setWordWrap(True)
+        self._data_folder_label.setProperty("role", "muted")
 
         self._discipline_combo = QComboBox()
         for disc in DISCIPLINES.values():
@@ -206,8 +213,13 @@ class FlightPicker(QWidget):
             self._terrain_combo.addItem(name, name)
         self._kept_only_check = QCheckBox("Kept by pipeline only")
         self._btn_search = QPushButton("Search catalog")
+        self._btn_search.setProperty("emphasis", "primary")
 
         filter_form = QFormLayout()
+        filter_form.setContentsMargins(6, 8, 6, 6)
+        filter_form.setHorizontalSpacing(8)
+        filter_form.setVerticalSpacing(6)
+        filter_form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
         for column, label in _FILTER_FIELDS:
             filter_form.addRow(label, self._filter_combos[column])
             if column == "wing_class":
@@ -218,11 +230,14 @@ class FlightPicker(QWidget):
                 filter_form.addRow("Region", self._region_combo)
                 filter_form.addRow("Terrain", self._terrain_combo)
         filter_form.addRow(self._kept_only_check)
-        filter_form.addRow(self._btn_search)
         filter_box = QGroupBox("Filter the catalog")
         filter_box.setToolTip("Catalog metadata comes from the FFVL and can be wrong.")
         filter_box.setLayout(filter_form)
         filter_scroll = QScrollArea()
+        filter_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        filter_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
         filter_scroll.setWidget(filter_box)
         filter_scroll.setWidgetResizable(True)
         filter_scroll.setMaximumHeight(420)
@@ -230,6 +245,9 @@ class FlightPicker(QWidget):
         self._results = QTableView()
         self._results_model = FlightResultsModel(self._results)
         self._results.setModel(self._results_model)
+        self._results.setAlternatingRowColors(True)
+        self._results.setShowGrid(False)
+        self._results.verticalHeader().hide()
         header = self._results.horizontalHeader()
         if header is not None:
             header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
@@ -244,18 +262,34 @@ class FlightPicker(QWidget):
 
         self._status = QLabel("No flight loaded.")
         self._status.setWordWrap(True)
+        self._status.setProperty("role", "muted")
 
+        heading = QLabel("Flight browser")
+        heading.setProperty("role", "heading")
+        data_box = QGroupBox("Data")
+        data_layout = QVBoxLayout(data_box)
+        data_layout.setContentsMargins(6, 8, 6, 6)
+        data_layout.setSpacing(6)
+        data_layout.addWidget(self._btn_data_folder)
+        data_layout.addWidget(self._data_folder_label)
+        self._discipline_caption = QLabel("Discipline")
+        discipline_row = QHBoxLayout()
+        discipline_row.addWidget(self._discipline_caption)
+        discipline_row.addWidget(self._discipline_combo, 1)
+        discipline_row.addWidget(self._discipline_label, 1)
+        data_layout.addLayout(discipline_row)
+        data_layout.addWidget(self._btn_browse)
+        data_layout.addWidget(self._btn_browse_folder)
+        results_heading = QLabel("Results · double-click a flight")
+        results_heading.setProperty("role", "section")
         layout = QVBoxLayout(self)
-        layout.addWidget(self._btn_data_folder)
-        layout.addWidget(self._data_folder_label)
-        layout.addSpacing(8)
-        layout.addWidget(QLabel("Discipline"))
-        layout.addWidget(self._discipline_combo)
-        layout.addWidget(self._discipline_label)
-        layout.addWidget(self._btn_browse)
-        layout.addWidget(self._btn_browse_folder)
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setSpacing(8)
+        layout.addWidget(heading)
+        layout.addWidget(data_box)
         layout.addWidget(filter_scroll)
-        layout.addWidget(QLabel("Double-click a row to load it:"))
+        layout.addWidget(self._btn_search)
+        layout.addWidget(results_heading)
         layout.addWidget(self._results, 1)
         layout.addWidget(self._status)
 
@@ -304,12 +338,14 @@ class FlightPicker(QWidget):
         if len(reachable) == 1:
             self._forced_discipline = reachable[0]
             self._discipline_combo.setVisible(False)
+            self._discipline_caption.setVisible(False)
             name = reachable[0].name.capitalize()
             self._discipline_label.setText(f"Discipline: {name} (the only one)")
             self._discipline_label.setVisible(True)
         else:
             self._forced_discipline = None
             self._discipline_combo.setVisible(True)
+            self._discipline_caption.setVisible(True)
             self._discipline_label.setVisible(False)
 
     def _update_data_folder_label(self) -> None:
