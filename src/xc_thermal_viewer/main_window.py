@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, cast
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
 from matplotlib.figure import Figure
 from PyQt6.QtCore import QSize, Qt
+from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
     QFileDialog,
     QMainWindow,
@@ -26,6 +27,7 @@ from PyQt6.QtWidgets import (
 from xc_thermal_viewer.core.style import DISCIPLINE_COLORS
 
 from . import data, datafolder, plotting
+from .widgets.about import AboutDialog
 from .widgets.flight_picker import FlightPicker
 from .widgets.group_flights import GroupFlights
 from .widgets.info_browser import set_methods_opener
@@ -78,6 +80,11 @@ class MainWindow(QMainWindow):
             available = screen.availableGeometry().size() - QSize(40, 60)
             initial_size = initial_size.boundedTo(available)
         self.resize(initial_size)
+        self._about_dialog: AboutDialog | None = None
+        about_action = QAction("About XC Thermal Viewer", self)
+        about_action.setMenuRole(QAction.MenuRole.AboutRole)
+        about_action.triggered.connect(self.show_about)
+        self.menuBar().addMenu("&Help").addAction(about_action)
 
         from .core.config import load_preproc_config
 
@@ -162,6 +169,14 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(splitter)
 
         self._redraw()
+
+    def show_about(self) -> None:
+        """Show the project's author, internship and research supervision."""
+        if self._about_dialog is None:
+            self._about_dialog = AboutDialog(self)
+        self._about_dialog.show()
+        self._about_dialog.raise_()
+        self._about_dialog.activateWindow()
 
     def _toggle_full_screen(self):
         """Toggle map focus explicitly, independently of native window fullscreen."""
@@ -251,6 +266,8 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:  # noqa: N802
         """Cancel archive work before Qt destroys the thermal-plane worker."""
+        if self._about_dialog is not None:
+            self._about_dialog.close()
         self._thermal_plane.shutdown()
         self._thermal_density.shutdown()
         self._route_comparison.shutdown()

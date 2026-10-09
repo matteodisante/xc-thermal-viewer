@@ -5,6 +5,17 @@ FFVL contest archive (CFD), and of the thermals they climbed. It shows single tr
 with their flight phases (Vilpellet segmentation), launch maps, thermal planes over
 5 km cells, regional thermal-time maps, route comparisons and group flights.
 
+## Project and development
+
+Developed by **Matteo Di Sante** as part of the internship
+*Anomalous Transport in Soaring Flights: Collective Strategies and Intermittent
+Search Models* at the **Econophysics Lab at CFM (Paris)**, under the supervision of
+**Prof. Michael Benzaquen** and **Dr. Alexandre Darmon**.
+
+These project credits are also available in **About** inside the viewer. Data
+sources, scientific methods and licences are documented separately in
+**Sources & methods**.
+
 ## Requirements
 
 **[uv](https://docs.astral.sh/uv/)** and **git**. You do not need to install Python
@@ -67,11 +78,13 @@ them and start quickly. `uv cache clean` deletes the viewer and its libraries;
    uvx --from git+https://github.com/matteodisante/xc-thermal-viewer xc-thermal-viewer
    ```
 
-2. On first launch a dialog asks for the data folder. Select the folder named
+2. Click **Start exploring** on the welcome screen.
+
+3. On first launch a dialog asks for the data folder. Select the folder named
    **`xc-thermal-viewer-data`** itself, the one holding `paragliders/` and
    `hang_gliders/`, not one of its subfolders. The viewer remembers it, so later
-   launches open straight away. To switch folders, click **Choose data folder…** at
-   the top of the left panel.
+   launches open your data after **Start exploring**. To switch folders, click
+   **Choose data folder…** at the top of the left panel.
 
 You can also give the data folder on the command line; it is remembered the same way:
 

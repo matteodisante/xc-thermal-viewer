@@ -69,7 +69,7 @@ def test_a_stale_remembered_folder_asks_again(tmp_path, monkeypatch):
 
     asked = []
     monkeypatch.setattr(
-        app, "choose_data_folder", lambda start="": asked.append(start) or None
+        app, "choose_data_folder", lambda parent=None, start="": asked.append(start)
     )
     stale = FakeSettings({datafolder.SETTINGS_KEY: str(tmp_path / "moved")})
     assert app._initial_data_folder(None, stale) == (None, True)

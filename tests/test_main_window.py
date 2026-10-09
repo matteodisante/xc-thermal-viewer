@@ -65,8 +65,9 @@ def _click_map_toggle(button, qapp):
 
 
 def _focused_map_height(window):
+    # Account for the native menu bar on platforms that put it inside the window.
     # The tab strip keeps the return toggle and map navigation accessible.
-    return window.height() - window._tabs.tabBar().height() - 8
+    return window.centralWidget().height() - window._tabs.tabBar().height() - 8
 
 
 def test_colour_and_visibility_preserve_2d_zoom_and_toolbar_history(window):

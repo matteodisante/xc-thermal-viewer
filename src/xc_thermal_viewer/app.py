@@ -85,7 +85,9 @@ def choose_data_folder(parent=None, start: str | Path = "") -> Path | None:
         start = chosen
 
 
-def _initial_data_folder(argument: Path | None, settings) -> tuple[Path | None, bool]:
+def _initial_data_folder(
+    argument: Path | None, settings, parent=None
+) -> tuple[Path | None, bool]:
     """The data folder to start with, and whether to remember it.
 
     The command-line argument wins, then the environment variable (used for this run
@@ -101,31 +103,81 @@ def _initial_data_folder(argument: Path | None, settings) -> tuple[Path | None, 
     remembered = settings.value(datafolder.SETTINGS_KEY, "", type=str)
     if remembered and not datafolder.missing_parts(remembered):
         return Path(remembered), False
-    return choose_data_folder(start=remembered), True
+    return choose_data_folder(parent, start=remembered), True
 
 
 def main(argv: list[str] | None = None) -> int:
     """Launch the viewer. Returns the process exit code."""
     args = _parse_args(argv)
+    if args.data_folder is not None:
+        problems = datafolder.missing_parts(args.data_folder)
+        if problems:
+            raise SystemExit("\n".join(problems))
     use_system_certificates()
     configure_graphics()
 
-    from PyQt6.QtCore import QSettings
-    from PyQt6.QtWidgets import QApplication
+    from PyQt6.QtCore import QSettings, QTimer
+    from PyQt6.QtWidgets import QApplication, QMessageBox
 
-    from .main_window import MainWindow
+    from .widgets.about import AboutDialog
+    from .widgets.welcome import WelcomeScreen
 
     app = QApplication(sys.argv[:1])
     app.setOrganizationName("xc-thermal-viewer")
     app.setApplicationName("xc-thermal-viewer")
     settings = QSettings()
-    folder, remember = _initial_data_folder(args.data_folder, settings)
-    if folder is not None:
-        folder = datafolder.use(folder)
-        if remember:
-            settings.setValue(datafolder.SETTINGS_KEY, str(folder))
-    window = MainWindow()
-    window.show()
+    welcome = WelcomeScreen()
+    window = None
+    about = None
+    launching = False
+
+    def show_about() -> None:
+        nonlocal about
+        if about is None:
+            about = AboutDialog(welcome)
+        about.show()
+        about.raise_()
+        about.activateWindow()
+
+    def load_viewer() -> None:
+        nonlocal window, launching
+        try:
+            folder, remember = _initial_data_folder(args.data_folder, settings, welcome)
+            if folder is not None:
+                folder = datafolder.use(folder)
+                if remember:
+                    settings.setValue(datafolder.SETTINGS_KEY, str(folder))
+            # Keep the welcome screen quick: plots and archive readers load only
+            # after Start, with the chosen data folder already in place.
+            from .main_window import MainWindow
+
+            window = MainWindow()
+            window.show()
+        except (Exception, SystemExit) as error:
+            # Exceptions must not escape a Qt callback, which would abort the app.
+            import traceback
+
+            traceback.print_exc()
+            QMessageBox.warning(welcome, "Unable to open the viewer", str(error))
+            launching = False
+            welcome.set_loading(False)
+            return
+        if about is not None:
+            about.close()
+        welcome.close()
+
+    def enter_viewer() -> None:
+        nonlocal launching
+        if launching:
+            return
+        launching = True
+        welcome.set_loading(True)
+        # Give the button's loading state a chance to paint before importing plots.
+        QTimer.singleShot(0, load_viewer)
+
+    welcome.start_requested.connect(enter_viewer)
+    welcome.about_requested.connect(show_about)
+    welcome.show()
     return app.exec()
 
 
