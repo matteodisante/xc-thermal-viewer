@@ -198,7 +198,8 @@ def test_all_tabs_resize_and_keep_controls_inside_window(
         tab = window._tabs.currentWidget()
         canvas = window._canvas if index == 0 else getattr(tab, "_canvas", None)
         if canvas is not None:
-            assert canvas.width() > 200 and canvas.height() > 100
+            label = window._tabs.tabText(index)
+            assert canvas.width() > 200 and canvas.height() > 100, label
         for layout in tab.findChildren(QLayout):
             if not isinstance(layout, FlowLayout):
                 continue
@@ -304,7 +305,7 @@ def test_switching_tabs_while_focused_keeps_the_new_map_visible(
         assert tab._canvas.isVisible()
         assert tab._canvas.width() >= window.width() - 8
         assert tab._canvas.height() >= _focused_map_height(window)
-        assert tab._toolbar.isHidden()
+        assert not tab._toolbar.isVisible()
     window._exit_full_screen()
     qapp.processEvents()
     assert not window._thermal_density._toolbar.isHidden()

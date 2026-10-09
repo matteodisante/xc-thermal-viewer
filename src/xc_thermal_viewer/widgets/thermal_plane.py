@@ -46,7 +46,7 @@ from ..thermal_store import (
     load_store,
     neighbour_frames,
 )
-from .flow_layout import FlowLayout, labeled_control
+from .flow_layout import ControlPanel, FlowLayout, labeled_control
 from .thermal_info import ThermalInfo
 
 NEIGHBOURS_MISSING = (
@@ -369,11 +369,13 @@ class ThermalPlane(QWidget):
         )
         self._plane_axes = [self._plane_ax]
         self._canvas = FigureCanvasQTAgg(self._figure)
-        layout = QVBoxLayout(self)
-        layout.addLayout(top)
-        layout.addWidget(self._summary)
-        layout.setSpacing(4)
-        layout.addWidget(self._time_settings)
+        self._canvas.setMinimumHeight(150)
+        controls = QVBoxLayout()
+        controls.setContentsMargins(0, 0, 0, 0)
+        controls.setSpacing(4)
+        controls.addLayout(top)
+        controls.addWidget(self._summary)
+        controls.addWidget(self._time_settings)
         self._daily_settings = QWidget()
         daily = FlowLayout(self._daily_settings)
         daily.setContentsMargins(0, 0, 0, 0)
@@ -404,14 +406,14 @@ class ThermalPlane(QWidget):
             labeled_control("to", self._hours[1]),
         ):
             daily.addWidget(item)
-        layout.addWidget(self._daily_settings)
+        controls.addWidget(self._daily_settings)
         self._daily_settings.hide()
-        layout.addLayout(heights)
+        controls.addLayout(heights)
         self._provenance = QLabel()
         self._provenance.setWordWrap(True)
         self._provenance.setOpenExternalLinks(True)
-        layout.addWidget(self._provenance)
-        layout.addWidget(self._image_info)
+        controls.addWidget(self._provenance)
+        controls.addWidget(self._image_info)
         self._toolbar = NavigationToolbar2QT(self._canvas, self)
         navigation = FlowLayout()
         navigation.addWidget(self._toolbar)
@@ -436,7 +438,10 @@ class ThermalPlane(QWidget):
             self._cancel,
         ):
             navigation.addWidget(button)
-        layout.addLayout(navigation)
+        controls.addLayout(navigation)
+        layout = QVBoxLayout(self)
+        layout.setSpacing(4)
+        layout.addWidget(ControlPanel(controls))
         layout.addWidget(self._canvas, 1)
         layout.addWidget(self._status)
         self._build.clicked.connect(self._start_index)

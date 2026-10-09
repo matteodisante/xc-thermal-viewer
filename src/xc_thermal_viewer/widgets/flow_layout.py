@@ -1,7 +1,15 @@
 """Control rows that wrap as the viewer window narrows."""
 
-from PyQt6.QtCore import QRect, QSize, Qt
-from PyQt6.QtWidgets import QHBoxLayout, QLabel, QLayout, QWidget
+from PyQt6.QtCore import QEvent, QRect, QSize, Qt
+from PyQt6.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLayout,
+    QScrollArea,
+    QSizePolicy,
+    QWidget,
+)
 
 
 def labeled_control(text, widget):
@@ -12,6 +20,49 @@ def labeled_control(text, widget):
     layout.addWidget(QLabel(text))
     layout.addWidget(widget)
     return group
+
+
+class ControlPanel(QScrollArea):
+    """Show every wrapped control row, and scroll them when the plot needs the room.
+
+    Rows normally get their full height. In a short window the plot below keeps its
+    minimum height, and the rows scroll instead of pushing the plot out of sight.
+    """
+
+    def __init__(self, layout, parent=None):
+        """Place ``layout`` in a frameless area that scrolls only vertically."""
+        super().__init__(parent)
+        content = QWidget()
+        content.setLayout(layout)
+        content.installEventFilter(self)
+        self.setWidget(content)
+        self.setWidgetResizable(True)
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+
+    def sizeHint(self):  # noqa: N802
+        """Ask for all rows as they wrap at the current width."""
+        content = self.widget()
+        width = max(self.width(), content.minimumSizeHint().width())
+        return QSize(content.minimumSizeHint().width(), content.heightForWidth(width))
+
+    def minimumSizeHint(self):  # noqa: N802
+        """Keep about one row of controls in view."""
+        height = min(self.sizeHint().height(), 4 * self.fontMetrics().height())
+        return QSize(self.widget().minimumSizeHint().width(), height)
+
+    def eventFilter(self, watched, event):  # noqa: N802
+        """Ask for a new height when controls appear, hide or change text."""
+        if event.type() == QEvent.Type.LayoutRequest:
+            self.updateGeometry()
+        return super().eventFilter(watched, event)
+
+    def resizeEvent(self, event):  # noqa: N802
+        """Rows rewrap at a new width, which changes the height they need."""
+        super().resizeEvent(event)
+        if event.size().width() != event.oldSize().width():
+            self.updateGeometry()
 
 
 class FlowLayout(QLayout):
