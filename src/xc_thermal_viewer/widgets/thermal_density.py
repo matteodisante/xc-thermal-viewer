@@ -1,0 +1,484 @@
+"""Cumulative thermal residence time per square kilometre over regional maps."""
+
+from __future__ import annotations
+
+import numpy as np
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
+from matplotlib.cm import ScalarMappable
+from matplotlib.colors import LogNorm
+from matplotlib.figure import Figure
+from PyQt6.QtCore import QTimer
+from PyQt6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QDoubleSpinBox,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
+
+from .. import geography, thermal_regions
+from ..density_maps import view_request
+from ..density_view import AdaptiveDensity
+from ..thermal_store import load_store
+from ..thermal_time import cache_path, load_grids
+from ..thermal_time_prepare import SOURCE
+from .density_background import DensityBackgrounds
+from .flow_layout import FlowLayout
+from .info_browser import info_browser
+from .source_notes import FLIGHT_SOURCE_HTML, background_sources_html
+from .thermal_plane import _Worker
+
+INFO_HTML = f"""
+<h2>Thermal density</h2>
+<p><b>Cumulative climb time per ground area, in hours/km².</b>
+All archived dates and heights; paragliders and hang gliders pooled.</p>
+
+<h3>Calculation</h3>
+<ol>
+<li><b>Select:</b> consecutive fixes in the same Vilpellet climb run. Keep gaps,
+phase boundaries and separate flights apart.</li>
+<li><b>Project:</b> positions to Lambert-93. Pool every altitude.</li>
+<li><b>Split time:</b> assume linear motion along each edge and assign its time
+to the 50 &times; 50 m pixels it crosses. A stationary edge adds its full duration
+to its pixel.</li>
+<li><b>Sum:</b> D(B) = seconds inside pixel B / (3600 &times; area(B) in km²).</li>
+</ol>
+<p><b>Example:</b> 36 seconds in one pixel give
+0.01 hours / 0.0025 km² = <b>4 hours/km²</b>.</p>
+
+<h3>Regions and cells</h3>
+<ul>
+<li><b>Regions:</b> five thesis areas plus a margin, cut from the national
+grid of the Routes tab. Native fixes of the saved Vilpellet climb runs; steps
+longer than 1.5 times the segment's median sampling interval are gaps and are
+excluded.</li>
+<li><b>Cells:</b> the twelve Thermal planes squares; their saved Vilpellet
+climb edges.</li>
+<li><b>Coverage:</b> all trajectories crossing the frame, including take-offs
+elsewhere. This tab has no date or height filter.</li>
+</ul>
+
+<h3>Reading the map</h3>
+<ul>
+<li><b>Interpretation:</b> recorded climb time. Frequently flown sites, long
+climbs and simultaneous pilots each add time. Values are neither encounter
+probabilities, thermal counts nor yearly rates.</li>
+<li><b>Transparent:</b> zero recorded climb time, including unvisited areas.
+This does not establish absence of thermals. Regional frames can overlap;
+do not add their totals.</li>
+<li><b>Colour:</b> one logarithmic scale for all panels, methods and zooms.
+Lower limit 0.01 hours/km²; upper limit the larger of 1 and the product's largest
+50 m value. Smaller positive values use the lightest colour.</li>
+<li><b>Zoom:</b> mouse wheel or toolbar; drag with the hand tool.
+Coarser pixels sum time and area. Maximum thermal detail is 50 m;
+axes show Lambert-93 kilometres.</li>
+<li><b>Titles:</b> climb hours over the whole frame.
+Terrain and Density adjust background and density opacity separately.</li>
+</ul>
+
+<h3>Sources and backgrounds</h3>
+<p>{FLIGHT_SOURCE_HTML}: processed IGC positions and times supply the paths
+and durations. Vilpellet climb labels select which intervals contribute.</p>
+{background_sources_html()}
+<ul>
+<li><b>Access:</b> time grids are saved in the data folder. Detailed saved cell maps are
+reused; other views load online and remain available offline while cached
+(512 MiB).</li>
+<li><b>Map detail:</b> up to 2048 pixels per side, down to 1.25 m/pixel.
+Photo dates differ from flight dates.</li>
+<li><b>Failed request:</b> the previous background may remain at its old
+resolution; the status line reports it.</li>
+</ul>
+"""
+
+
+class DensityInfo(QDialog):
+    """How the density maps are computed."""
+
+    def __init__(self, parent=None):
+        """Show the complete definition alongside the plots."""
+        super().__init__(parent)
+        self.setWindowTitle("Thermal density: methods and sources")
+        self.resize(780, 780)
+        text = info_browser(self)
+        text.setHtml(INFO_HTML)
+        layout = QVBoxLayout(self)
+        layout.addWidget(text)
+
+
+class ThermalDensity(QWidget):
+    """Prepared time grids with adaptive density and geographic backgrounds."""
+
+    def __init__(self, parent=None):
+        """Build responsive controls without reading the archive at startup."""
+        super().__init__(parent)
+        self._grids, self._metadata = {}, {}
+        self._cells = []
+        self._worker = None
+        self._tried = False
+        self._densities = []
+        self._backdrops, self._axes_by_key, self._limits = {}, {}, {}
+        self._maps = None
+        self._map_note = ""
+        self._map_errors = {}
+        self._info_panel = None
+        self._norm = LogNorm(0.01, 1, clip=True)
+        self._area = QComboBox()
+        self._area.addItem("Regions", "regions")
+        self._area.addItem("Cells", "cells")
+        self._item = QComboBox()
+        self._item.setMinimumContentsLength(24)
+        self._item.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+        )
+        self._background = QComboBox()
+        for text, kind in (
+            ("Topography + contours · IGN", "topography"),
+            ("Colour map · IGN", "colour"),
+            ("Aerial photo · IGN", "aerial"),
+            ("Shaded relief · Esri", "relief"),
+            ("None", "none"),
+        ):
+            self._background.addItem(text, kind)
+        self._terrain = self._opacity(85, "% terrain")
+        self._strength = self._opacity(80, "% density")
+        self._info = QPushButton("Info")
+        self._info.setToolTip("How hours/km² are computed")
+        self._reload = QPushButton("Reload data")
+        self._status = QLabel("Prepare with scripts/prepare_thermal_density.py.")
+        self._status.setWordWrap(True)
+        self._figure = Figure(figsize=(10, 6), layout="compressed")
+        self._canvas = FigureCanvasQTAgg(self._figure)
+        self._toolbar = NavigationToolbar2QT(self._canvas, self)
+        self._debounce = QTimer(self)
+        self._debounce.setSingleShot(True)
+        self._debounce.setInterval(350)
+        self._debounce.timeout.connect(self._request_maps)
+        self._canvas.mpl_connect("resize_event", lambda _: self._debounce.start())
+        self._canvas.mpl_connect("scroll_event", self._scroll)
+        top, look = FlowLayout(), FlowLayout()
+        for widget in (self._area, self._item, self._reload, self._info):
+            top.addWidget(widget)
+        look.addWidget(QLabel("Background"))
+        for widget in (self._background, self._terrain, self._strength, self._toolbar):
+            look.addWidget(widget)
+        layout = QVBoxLayout(self)
+        layout.addLayout(top)
+        layout.addLayout(look)
+        layout.addWidget(self._canvas, 1)
+        layout.addWidget(self._status)
+        self._area.currentIndexChanged.connect(self._area_changed)
+        self._item.currentIndexChanged.connect(self._draw)
+        self._background.currentIndexChanged.connect(self._background_changed)
+        self._terrain.valueChanged.connect(self._terrain_changed)
+        self._strength.valueChanged.connect(self._strength_changed)
+        self._reload.clicked.connect(self._load)
+        self._info.clicked.connect(self._show_info)
+        self._area_changed()
+
+    @staticmethod
+    def _opacity(value, suffix):
+        widget = QDoubleSpinBox()
+        widget.setRange(0, 100)
+        widget.setDecimals(0)
+        widget.setSingleStep(5)
+        widget.setValue(value)
+        widget.setSuffix(suffix)
+        return widget
+
+    def ensure_loaded(self):
+        """Load the compact prepared product when this tab is first opened."""
+        if not self._tried:
+            self._tried = True
+            self._load()
+
+    def invalidate(self):
+        """Release old data after changing archive folders."""
+        self.shutdown()
+        self._grids, self._metadata, self._limits, self._cells = {}, {}, {}, []
+        self._tried = False
+        self._area_changed()
+
+    def shutdown(self):
+        """Finish a local read and detach pending network work from the widget."""
+        self._debounce.stop()
+        if self._maps:
+            self._maps.close()
+            self._maps.deleteLater()
+            self._maps = None
+        if self._worker:
+            self._worker.cancel.set()
+            self._worker.succeeded.disconnect()
+            self._worker.wait()
+            self._worker = None
+
+    def set_compact(self, compact):
+        """Hide the status line when plots fill a full-screen window."""
+        self._status.setVisible(not compact)
+
+    def _load(self):
+        if self._worker:
+            return
+        self._status.setText("Reading prepared thermal hours from the data folder…")
+        self._reload.setEnabled(False)
+
+        def read(progress, cancel):
+            grids, metadata = load_grids()
+            store = load_store()
+            return grids, metadata, store.cells() if store else [], cache_path().parent
+
+        self._worker = _Worker(read, self)
+        self._worker.failed.connect(self._status.setText)
+        self._worker.succeeded.connect(self._received)
+        self._worker.finished.connect(self._finished)
+        self._worker.start()
+
+    def _received(self, result):
+        self._grids, self._metadata, self._cells, folder = result
+        maximum = max(
+            (
+                float(g.seconds.max()) / 3600 / (g.step / 1000) ** 2
+                for g in self._grids.values()
+                if len(g.seconds)
+            ),
+            default=1,
+        )
+        self._norm = LogNorm(0.01, max(1, maximum), clip=True)
+        if self._maps:
+            self._maps.close()
+            self._maps.deleteLater()
+        self._maps = DensityBackgrounds(folder / "density-maps", self)
+        self._maps.ready.connect(self._map_received)
+        self._maps.failed.connect(self._map_failed)
+        self._limits = {}
+        self._area_changed()
+
+    def _finished(self):
+        worker = self.sender()
+        if worker is self._worker:
+            self._worker = None
+            self._reload.setEnabled(True)
+        worker.deleteLater()
+
+    def _show_info(self):
+        if self._info_panel is None:
+            self._info_panel = DensityInfo(self)
+        self._info_panel.show()
+        self._info_panel.raise_()
+
+    def _rank(self, cell):
+        return [c for c in self._cells if c.terrain == cell.terrain].index(cell) + 1
+
+    def _area_changed(self, *_):
+        cells = self._area.currentData() == "cells"
+        self._item.blockSignals(True)
+        self._item.clear()
+        if cells:
+            for terrain in geography.TERRAIN_ORDER:
+                group = [c for c in self._cells if c.terrain == terrain]
+                if group:
+                    self._item.addItem(
+                        f"{terrain}: {len(group)} cells", ("group", terrain)
+                    )
+            for cell in self._cells:
+                self._item.addItem(
+                    f"{cell.terrain} #{self._rank(cell)} · ground {cell.ground_m:g} m",
+                    ("cell", (cell.ix, cell.iy)),
+                )
+        else:
+            self._item.addItem("All regions side by side", None)
+            for name in thermal_regions.REGIONS:
+                self._item.addItem(name, name)
+        self._item.blockSignals(False)
+        self._draw()
+
+    def _panels(self):
+        data = self._item.currentData()
+        if self._area.currentData() == "regions":
+            names = list(thermal_regions.REGIONS) if data is None else [data]
+            return [(f"region/{name}/{SOURCE}", name) for name in names]
+        if data is None:
+            return []
+        what, value = data
+        cells = [
+            c
+            for c in self._cells
+            if (c.terrain == value if what == "group" else (c.ix, c.iy) == value)
+        ]
+        return [
+            (f"cell/{c.ix}/{c.iy}/{SOURCE}", f"{c.terrain} #{self._rank(c)}")
+            for c in cells
+        ]
+
+    def _draw(self, *_):
+        for key, ax in self._axes_by_key.items():
+            self._limits[key.rsplit("/", 1)[0]] = ax.get_xlim(), ax.get_ylim()
+        for density in self._densities:
+            density.close()
+        if self._maps:
+            self._maps.reset()
+        self._densities, self._backdrops, self._axes_by_key = [], {}, {}
+        self._figure.clear()
+        panels = [(key, title) for key, title in self._panels() if key in self._grids]
+        if not panels:
+            if self._grids and self._panels():
+                only = self._area.currentData()
+                self._status.setText(
+                    f"Vilpellet {only} not prepared. Run "
+                    f"scripts/prepare_thermal_density.py --only {only}."
+                )
+            self._canvas.draw_idle()
+            return
+        columns = min(3, len(panels))
+        axes = self._figure.subplots(-(-len(panels) // columns), columns, squeeze=False)
+        for ax in axes.ravel()[len(panels) :]:
+            ax.axis("off")
+        for ax, (key, title) in zip(axes.ravel(), panels, strict=False):
+            grid = self._grids[key]
+            w, s, e, n = grid.bounds / 1000
+            ax.set(
+                xlim=(w, e),
+                ylim=(s, n),
+                xlabel="Lambert-93 east (km)",
+                ylabel="North (km)",
+                facecolor="#eef0eb",
+            )
+            ax.set_aspect("equal")
+            ax.set_autoscale_on(False)
+            frame = key.rsplit("/", 1)[0]
+            if frame in self._limits:
+                ax.set_xlim(self._limits[frame][0])
+                ax.set_ylim(self._limits[frame][1])
+            self._axes_by_key[key] = ax
+            density = AdaptiveDensity(
+                ax,
+                grid.window,
+                label="Thermal hours/km²",
+                norm=self._norm,
+                alpha=self._strength.value() / 100,
+            )
+            density.refresh()
+            self._densities.append(density)
+
+            def caption(_, ax=ax, title=title, grid=grid, density=density):
+                ax.set_title(
+                    f"{title} · {grid.hours:,.1f} thermal h\n"
+                    f"Displayed pixels: {density._size}",
+                    fontsize=10,
+                )
+
+            caption(None)
+            for event in ("xlim_changed", "ylim_changed"):
+                ax.callbacks.connect(event, caption)
+                ax.callbacks.connect(event, lambda _: self._debounce.start())
+        self._figure.colorbar(
+            ScalarMappable(norm=self._norm, cmap="magma_r"),
+            ax=list(self._axes_by_key.values()),
+            orientation="horizontal",
+            shrink=0.75,
+            fraction=0.065,
+            pad=0.07,
+            label="Thermal hours/km² · fixed logarithmic scale",
+        )
+        self._toolbar.update()
+        self._canvas.draw_idle()
+        self._background_changed()
+
+    def _terrain_changed(self, *_):
+        for artist in self._backdrops.values():
+            artist.set_alpha(self._terrain.value() / 100)
+        self._canvas.draw_idle()
+
+    def _strength_changed(self, *_):
+        for density in self._densities:
+            density.set_alpha(self._strength.value() / 100)
+        self._canvas.draw_idle()
+
+    def _background_changed(self, *_):
+        self._map_errors.clear()
+        for artist in self._backdrops.values():
+            artist.remove()
+        self._backdrops.clear()
+        if self._maps:
+            self._maps.reset()
+        self._map_note = (
+            "" if self._background.currentData() == "none" else "Loading map detail…"
+        )
+        self._update_status()
+        self._debounce.start()
+        self._canvas.draw_idle()
+
+    def _request_maps(self):
+        if not self._maps:
+            return
+        kind = self._background.currentData()
+        wanted = (
+            {}
+            if kind == "none"
+            else {
+                key: view_request(kind, ax, self._canvas.devicePixelRatioF())
+                for key, ax in self._axes_by_key.items()
+            }
+        )
+        self._maps.request(wanted)
+
+    def _map_received(self, key, result):
+        if key not in self._axes_by_key:
+            return
+        info, pixels = result
+        self._map_errors.pop(key, None)
+        w, s, e, n = np.asarray(info["extent"]) / 1000
+        if key in self._backdrops:
+            self._backdrops[key].remove()
+        ax = self._axes_by_key[key]
+        self._backdrops[key] = ax.imshow(
+            pixels,
+            extent=(w, e, s, n),
+            origin="upper",
+            zorder=0.5,
+            alpha=self._terrain.value() / 100,
+            aspect="equal",
+            interpolation="bilinear",
+        )
+        source = (
+            "saved Thermal planes background"
+            if info.get("saved_planes")
+            else "new views require internet"
+        )
+        self._map_note = info["attribution"] + " · " + source
+        self._update_status()
+        self._canvas.draw_idle()
+
+    def _map_failed(self, key, message):
+        self._map_errors[key] = message
+        self._update_status()
+
+    def _update_status(self):
+        if not self._grids:
+            return
+        self._status.setText(
+            "Vilpellet · all archived dates and heights · 50 m grid · hours/km² "
+            f"(not probability). {self._map_note} "
+            + (
+                f"{len(self._map_errors)} map(s) unavailable; "
+                "previous detail retained. " + next(iter(self._map_errors.values()))
+                if self._map_errors
+                else ""
+            )
+        )
+
+    def _scroll(self, event):
+        if event.inaxes not in self._axes_by_key.values() or event.xdata is None:
+            return
+        ax = event.inaxes
+        self._toolbar.push_current()
+        factor = 0.7 if event.button == "up" else 1 / 0.7
+        for limits, setter, centre in (
+            (ax.get_xlim(), ax.set_xlim, event.xdata),
+            (ax.get_ylim(), ax.set_ylim, event.ydata),
+        ):
+            setter(*(centre + (np.asarray(limits) - centre) * factor))
+        self._toolbar.push_current()
+        self._canvas.draw_idle()

@@ -1,0 +1,58 @@
+# Working preprocessing parameters. Values and units follow the key names.
+# See the thesis (Chapter 2) for the rules.
+# Raw files are preserved; cleaning decisions are operational quality criteria.
+
+fix_level:
+  max_horizontal_speed_mps:
+    paragliders: 45.0
+    hang gliders: 55.0
+  # Operational magnitude cutoff; not a proved physical maximum.
+  max_vertical_speed_mps: 10.0
+  # Half-width around step midpoints; endpoints included.
+  vz_window_s: 5.0
+  # Minimum number of finite STEPS, despite the historical key name.
+  vz_min_window_fixes: 5
+  min_altitude_m: -100.0
+  max_altitude_m: 6000.0
+  hampel_window_s: 20.0
+  # Scale multiplier for a diagnostic flag; does not gate deletion.
+  hampel_k: 5.0
+  hampel_eps_min_m: 15.0
+  hampel_min_window_fixes: 5
+  frozen_eps_m: 15.0
+  frozen_delta_z_m: 5.0
+  # Minimum candidate frozen-run duration, in seconds.
+  frozen_tau_s: 60.0
+  integrity_max_fraction: 0.1
+alt_channel:
+  gnss_present_min: 0.95
+  # Range gate; little altitude variation alone does not prove a stuck sensor.
+  gnss_min_range_m: 30.0
+  # Global eligibility; the witness additionally needs complete local paired coverage.
+  baro_witness_present_min: 0.95
+  baro_witness_min_range_m: 30.0
+trimming:
+  takeoff_speed_mps: 5.0
+  sustained_s: 30.0
+  # Excise a sufficiently long slow interval only with the local barometric witness.
+  interior_ground_s: 600.0
+  # No usable local barometer: abstain; no speed-only fallback.
+  ground_flatness_m: 5.0
+flight_level:
+  # Minimum recorded duration, excluding gaps and forced boundaries.
+  min_duration_s: 2400.0
+  # Minimum accumulated distance within contiguous blocks.
+  min_path_km: 20.0
+  # Maximum elapsed span, including gaps.
+  max_duration_s: 57600.0
+  # Select appreciable vertical excursion; this can exclude genuine soaring.
+  min_alt_range_m: 600.0
+sampling:
+  max_gap_factor: 10.0
+  max_gap_seconds: 20.0
+  max_missing_fraction: 0.1
+  min_segment_duration_s: 90.0
+savgol:
+  polyorder: 3
+  tau_c_horizontal_s: 5.0
+  tau_c_vertical_s: 5.0
