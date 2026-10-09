@@ -66,7 +66,7 @@ class ThermalDensity(QWidget):
         self._strength = self._opacity(80, "% density")
         self._info, self._howto = help_buttons("density", self)
         self._reload = QPushButton("Reload data")
-        self._status = QLabel("Prepare with scripts/prepare_thermal_density.py.")
+        self._status = QLabel("The climbing-time maps load when this tab opens.")
         self._status.setWordWrap(True)
         self._figure = Figure(figsize=(10, 6), layout="compressed")
         self._canvas = FigureCanvasQTAgg(self._figure)
@@ -238,8 +238,8 @@ class ThermalDensity(QWidget):
             if self._grids and self._panels():
                 only = self._area.currentData()
                 self._status.setText(
-                    f"Vilpellet {only} not prepared. Run "
-                    f"scripts/prepare_thermal_density.py --only {only}."
+                    f"This data folder has no prepared climbing-time maps for "
+                    f"the {only}. Choose a complete data folder."
                 )
             self._canvas.draw_idle()
             return

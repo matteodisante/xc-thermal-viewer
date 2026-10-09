@@ -50,10 +50,10 @@ from .flow_layout import ControlPanel, FlowLayout, labeled_control
 from .help import help_buttons
 
 NEIGHBOURS_MISSING = (
-    "Neighbouring cells are not prepared in the data folder. Run "
-    "scripts/prepare_thermal_neighbours.py."
+    "This data folder has no prepared neighbouring cells, so zooming out shows "
+    "only the selected cell."
 )
-# The only climb labels shown: Jérémie's Vilpellet segmentation.
+# The only climb labels shown: the Vilpellet segmentation.
 SOURCE = "vilpellet"
 
 
@@ -192,9 +192,8 @@ class ThermalPlane(QWidget):
             QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
         )
         self._cells.setToolTip(
-            "Ranked by distinct cell visitors across all dates, at any altitude "
-            "and in any flight phase. This is not the number of climbing flights "
-            "or intersections at the selected height."
+            "The twelve prepared cells: in each terrain category, the three with "
+            "the most Vilpellet climb runs over all dates."
         )
         self._start, self._end = QDateTimeEdit(), QDateTimeEdit()
         for edit in (self._start, self._end):
@@ -524,8 +523,8 @@ class ThermalPlane(QWidget):
             self._draw_map()
             self._draw_plane()
             self._status.setText(
-                "Prepared thermal-planes.sqlite3 not found. Choose the data folder. "
-                "Prepare separately with scripts/prepare_thermal_planes.py."
+                "This data folder has no prepared Thermal planes data "
+                "(thermal-planes.sqlite3). Choose a complete data folder."
             )
         else:
             self._index_ready(index)
@@ -846,7 +845,7 @@ class ThermalPlane(QWidget):
             'Terrain: <a href="https://www.data.gouv.fr/datasets/rge-alti-r">'
             "IGN RGE ALTI</a> · Licence Ouverte 2.0"
             f"{detail}{api}. Flights: FFVL CFD IGC · GNSS altitude · "
-            "climb labels: Vilpellet (Jérémie)."
+            "climb labels: Vilpellet et al. (2026)."
         )
 
     def _invalidate_plane(self, *_):
@@ -1249,8 +1248,7 @@ class ThermalPlane(QWidget):
             from .thermal_3d import Thermal3D
         except ImportError:
             self._status.setText(
-                "The 3D view needs the viewer dependencies: "
-                "uv sync --group viewer --inexact"
+                "The 3D view could not start: its OpenGL libraries are missing."
             )
             return
         if self._terrain_3d_panel is None:

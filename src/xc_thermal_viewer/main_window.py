@@ -45,7 +45,7 @@ if TYPE_CHECKING:
     from .core.preproc.pipeline import FlightResult
 
 # The title above a phase-coloured trajectory: the only segmentation the viewer shows.
-SEGMENTATION_TITLE = "Vilpellet segmentation (Jérémie)"
+SEGMENTATION_TITLE = "Vilpellet segmentation"
 
 # Why the segmenter left a flight unlabelled, in words a status line can carry.  The
 # keys are Vilpellet's `phase_reason` values.

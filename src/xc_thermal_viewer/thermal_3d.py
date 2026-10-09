@@ -141,8 +141,8 @@ def read_neighbour_surface(store, cell):
                 reference=reference,
             )
     raise ValueError(
-        f"Missing IGN terrain for neighbour {cell.ix}/{cell.iy}. Run "
-        "scripts/prepare_thermal_neighbours.py --terrain-only."
+        f"The data folder has no IGN terrain for the neighbouring cell "
+        f"{cell.ix}/{cell.iy}. Choose the 5 x 5 km area."
     )
 
 
@@ -227,8 +227,8 @@ def read_neighbour_points(store, cell, start, end, check_cancel, progress):
     flights = store.neighbour_flights(cell, "vilpellet")
     if flights is None:
         raise ValueError(
-            "Neighbour intersections are not prepared. Run "
-            "scripts/prepare_thermal_neighbours.py."
+            "The data folder has no prepared neighbouring cells. "
+            "Choose the 5 x 5 km area."
         )
     identities = np.asarray(flights, dtype=object).reshape(-1, 2)
     west, south, east, north = area_bounds(cell, 10)

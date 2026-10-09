@@ -91,9 +91,8 @@ class ThermalStore:
                 )
             if metadata.get("ground_reference") != GROUND_REFERENCE:
                 raise ValueError(
-                    "This snapshot uses another ground reference. Run "
-                    "scripts/prepare_thermal_planes.py to select cells "
-                    "by highest terrain and start planes at the lowest."
+                    "The Thermal planes data in this data folder come from an "
+                    "older version of the viewer. Use an up-to-date data folder."
                 )
             from .thermal_daily import POINT_LATTICE_VERSION
 
@@ -392,9 +391,8 @@ def load_store():
     store = ThermalStore(path)
     if not store.has_terrain_ranking:
         raise ValueError(
-            "This snapshot still contains the old launch-selected cells. Run "
-            "scripts/prepare_thermal_planes.py to prepare the three "
-            "most populated cells per highest-terrain category."
+            "The Thermal planes data in this data folder come from an older "
+            "version of the viewer. Use an up-to-date data folder."
         )
     return store
 

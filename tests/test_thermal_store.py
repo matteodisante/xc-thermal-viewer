@@ -374,7 +374,7 @@ def test_other_ground_reference_cannot_be_displayed_as_lowest_terrain(store, leg
         db.execute(
             "UPDATE metadata SET value=? WHERE key='ground_reference'", (legacy,)
         )
-    with pytest.raises(ValueError, match=r"prepare_thermal_planes\.py"):
+    with pytest.raises(ValueError, match="older version of the viewer"):
         ThermalStore(store.path)
 
 
@@ -594,5 +594,5 @@ def test_viewer_refuses_legacy_subset_instead_of_calling_it_the_terrain_top_thre
     with connect(store.path) as db:
         db.execute("DELETE FROM metadata WHERE key='ranking_reference'")
     monkeypatch.setenv("XC_THERMAL_VIEWER_CACHE_DIR", str(store.path.parent))
-    with pytest.raises(ValueError, match="three most populated cells"):
+    with pytest.raises(ValueError, match="older version of the viewer"):
         load_store()

@@ -316,7 +316,7 @@ def test_10km_cloud_uses_central_planes_filters_dates_and_counts_unique_flights(
     assert scene.area_km == 5 and len(scene.points) == 2
     assert levels == [0, 2]  # The smaller area never reads neighbours.
     store.neighbour_flights = lambda *_: None
-    with pytest.raises(ValueError, match="not prepared"):
+    with pytest.raises(ValueError, match="no prepared neighbouring cells"):
         load_scene(store, cell, 100, 200, area_km=10)
     with pytest.raises(ValueError, match="Choose a 5"):
         load_scene(store, cell, 100, 200, area_km=15)
