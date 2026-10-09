@@ -40,6 +40,27 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 winget install --id=astral-sh.uv -e
 ```
 
+### On a company or university network
+
+If uv stops with `invalid peer certificate: UnknownIssuer`, the network inspects HTTPS
+with its own certificate. Your IT department has installed it in the system, but uv
+does not look there by default. Tell uv to use the system certificates, once:
+
+```bash
+# uv 0.11 or newer (check with: uv --version)
+echo 'export UV_SYSTEM_CERTS=1' >> ~/.bashrc
+# uv older than 0.11
+echo 'export UV_NATIVE_TLS=1' >> ~/.bashrc
+```
+
+On macOS, write to `~/.zshrc` instead of `~/.bashrc`. Then open a new terminal: the
+launch command stays the same. The viewer itself always uses the system certificates
+for its map downloads.
+
+If the error persists, the company certificate is not in the system. Ask your IT
+department for it as a `.pem` file and add, the same way,
+`export SSL_CERT_FILE=/path/to/company-certificate.pem`.
+
 ### What uv does on the first launch
 
 The first launch downloads, into uv's own folders in your user directory:
