@@ -19,8 +19,11 @@ from PyQt6.QtCore import QCoreApplication, QTimer, Qt
 from PyQt6.QtGui import QSurfaceFormat
 from xc_thermal_viewer.app import main
 
+import truststore
+
 original = QtWidgets.QApplication
 events = []
+truststore.inject_into_ssl = lambda: events.append("certificates")
 
 class CheckedApplication(original):
     def __init__(self, argv):
@@ -49,7 +52,7 @@ module = ModuleType("xc_thermal_viewer.main_window")
 module.MainWindow = Window
 sys.modules[module.__name__] = module
 assert main() == 0
-assert events == ["application", "window"]
+assert events == ["certificates", "application", "window"]
 """
     result = subprocess.run(
         [sys.executable, "-c", code],

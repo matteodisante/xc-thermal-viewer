@@ -30,6 +30,18 @@ def configure_graphics() -> None:
     QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
 
 
+def use_system_certificates() -> None:
+    """Verify HTTPS downloads with the operating system's certificates, as a browser.
+
+    Company networks that inspect HTTPS re-sign it with their own certificate, which
+    the IT department installs in the system. Python's bundled certificates do not
+    know it, so map downloads would fail with an unknown-issuer error.
+    """
+    import truststore
+
+    truststore.inject_into_ssl()
+
+
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     """The command line: an optional data folder."""
     parser = argparse.ArgumentParser(
@@ -95,6 +107,7 @@ def _initial_data_folder(argument: Path | None, settings) -> tuple[Path | None, 
 def main(argv: list[str] | None = None) -> int:
     """Launch the viewer. Returns the process exit code."""
     args = _parse_args(argv)
+    use_system_certificates()
     configure_graphics()
 
     from PyQt6.QtCore import QSettings
