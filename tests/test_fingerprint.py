@@ -60,3 +60,14 @@ def test_large_files_are_identified_by_size(tmp_path):
     with big.open("wb") as out:
         out.truncate(SMALL_FILE_BYTES + 1)
     assert file_identity(big, tmp_path) == ["big.bin", SMALL_FILE_BYTES + 1]
+
+
+def test_a_rewrite_with_same_size_and_time_is_still_seen(tmp_path):
+    # Windows can give two quick writes the same modification time.
+    path = tmp_path / "config.yaml"
+    path.write_text("version: 1")
+    stamp = path.stat().st_mtime_ns
+    before = file_identity(path)
+    path.write_text("version: 2")
+    os.utime(path, ns=(stamp, stamp))
+    assert file_identity(path) != before

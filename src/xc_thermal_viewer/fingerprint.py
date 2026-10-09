@@ -14,6 +14,7 @@ No Qt import (see the package docstring).
 from __future__ import annotations
 
 import hashlib
+import time
 from functools import lru_cache
 from pathlib import Path
 
@@ -38,11 +39,29 @@ def file_identity(path: str | Path, root: str | Path | None = None) -> list:
     stat = path.stat()
     if stat.st_size > SMALL_FILE_BYTES:
         return [name, stat.st_size]
-    return [name, stat.st_size, _sha256(str(path), stat.st_size, stat.st_mtime_ns)]
+    if time.time_ns() - stat.st_mtime_ns < RACY_NS:
+        # A file this recent may be rewritten within the same clock tick, keeping
+        # its size and time: hash it again instead of trusting the cache.
+        return [name, stat.st_size, _sha256(path)]
+    return [
+        name,
+        stat.st_size,
+        _cached_sha256(str(path), stat.st_size, stat.st_mtime_ns),
+    ]
+
+
+#: Modification times are coarse on some file systems (Windows, FAT): a file
+#: written less than this long ago is never served from the hash cache.
+RACY_NS = 2_000_000_000
+
+
+def _sha256(path: Path) -> str:
+    """The SHA-256 of a file's bytes."""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 @lru_cache(maxsize=256)
-def _sha256(path: str, size: int, mtime_ns: int) -> str:
+def _cached_sha256(path: str, size: int, mtime_ns: int) -> str:
     """Hash a small file once per version of it seen by this process."""
     del size, mtime_ns  # cache key only: a rewritten file is hashed again
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    return _sha256(Path(path))
