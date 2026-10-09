@@ -8,27 +8,14 @@ with their flight phases (Vilpellet segmentation), launch maps, thermal planes o
 ## Requirements
 
 **[uv](https://docs.astral.sh/uv/)** and **git**. You do not need to install Python
-or any library yourself. Works on macOS, Linux and Windows; the 3D views need
-OpenGL 3.3. On Windows, use **Git Bash** as your terminal: it comes with
-[Git for Windows](https://git-scm.com/downloads/win), and every command below works
-there as on macOS and Linux.
+or any library yourself. Works on macOS, Linux and Windows. 
+On Windows, use **Git Bash** as your terminal.
 
 Check what you have; each command prints a version number, or an error if the tool is
 missing:
 
 ```bash
 uv --version
-git --version
-```
-
-Install git if it is missing:
-
-```bash
-# macOS
-xcode-select --install
-# Linux (Debian, Ubuntu)
-sudo apt install git
-# Windows: install Git for Windows from https://git-scm.com/downloads/win
 ```
 
 Install uv if it is missing, then open a new terminal:
@@ -57,9 +44,6 @@ On macOS, write to `~/.zshrc` instead of `~/.bashrc`. Then open a new terminal: 
 launch command stays the same. The viewer itself always uses the system certificates
 for its map downloads.
 
-If the error persists, the company certificate is not in the system. Ask your IT
-department for it as a `.pem` file and add, the same way,
-`export SSL_CERT_FILE=/path/to/company-certificate.pem`.
 
 ### What uv does on the first launch
 
@@ -131,23 +115,38 @@ A tab whose files are missing still opens and says what it needs. Map background
 internet connection; everything saved in the folder works offline.
 
 The folder can be moved or copied to another computer as is: saved products identify
-their inputs by their place inside the folder and their content, never by absolute
-path or file date.
+their inputs by their place inside the folder and their content.
 
-## Development
 
-```bash
-uv sync
-uv run pytest
-```
+## Credits and licences
 
-Tests run without a display.
+**Code:** MIT, see [LICENSE](LICENSE). The libraries that uv downloads keep their own
+licences; in particular PyQt6, the window toolkit, is GPL v3.
 
-## Origin and licences
+**Flight phases:** the climb, search and transition labels come from the segmentation of
+J. Vilpellet, A. Darmon and M. Benzaquen, *From Random Walks to Thermal Rides: Universal
+Anomalous Transport in Soaring Flights*,
+[arXiv:2601.01293](https://arxiv.org/abs/2601.01293) (2026), ported from the
+authors' code with their fitted parameters.
 
-The viewer and the flight-processing code (IGC parsing, cleaning, Vilpellet
-segmentation) come from the master's thesis repository
-[soaring-anomalous-transport](https://github.com/matteodisante/soaring-anomalous-transport). Code: MIT.
-Bundled terrain extracts: IGN, Licence Ouverte 2.0 (see
-`src/xc_thermal_viewer/assets/thermal_orography/README.md`). Basemap: Natural Earth,
-public domain.
+**Flight tracks:** FFVL contest archive (CFD),
+[paragliders](https://parapente.ffvl.fr/cfd/liste) and
+[hang gliders](https://delta.ffvl.fr/cfd/liste). They are only in the data folder,
+not in this repository.
+
+**Included in this repository** (`src/xc_thermal_viewer/assets/`):
+
+- small terrain extracts from IGN RGE ALTI, the crest lines derived from them, and
+  summit points from IGN BD TOPO: © IGN,
+  [Licence Ouverte 2.0](https://www.etalab.gouv.fr/licence-ouverte-open-licence/)
+  (details in `assets/thermal_orography/README.md`);
+- country outlines from [Natural Earth](https://www.naturalearthdata.com/): public
+  domain.
+
+**Downloaded while the viewer runs:**
+
+- IGN maps, aerial photos (BD ORTHO), elevation contours and terrain (RGE ALTI) from
+  the [Géoplateforme](https://geoservices.ign.fr/): © IGN, Licence Ouverte 2.0;
+- shaded relief from
+  [Esri World Hillshade](https://services.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer):
+  © Esri and its data contributors, under Esri's terms of use.
