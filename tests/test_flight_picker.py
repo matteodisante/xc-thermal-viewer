@@ -51,6 +51,7 @@ def _clear_env(monkeypatch):
     # isolate the tests from whatever this shell happens to have set.
     monkeypatch.delenv("XC_THERMAL_VIEWER_PARA_ROOT", raising=False)
     monkeypatch.delenv("XC_THERMAL_VIEWER_HANG_ROOT", raising=False)
+    monkeypatch.delenv(disciplines_mod.DATA_FOLDER_ENV, raising=False)
 
 
 def test_discipline_choice_hidden_when_only_paragliders_reachable(

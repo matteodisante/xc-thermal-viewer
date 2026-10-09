@@ -18,8 +18,16 @@ from __future__ import annotations
 import gc
 import importlib.util
 import os
+import sys
+from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+if sys.platform == "win32" and os.environ["QT_QPA_PLATFORM"] == "offscreen":
+    # Qt's Windows offscreen backend uses FreeType, not native font discovery.
+    # Without a font directory, dummy glyph metrics distort widget size hints.
+    os.environ.setdefault(
+        "QT_QPA_FONTDIR", str(Path(os.environ.get("WINDIR", "C:/Windows")) / "Fonts")
+    )
 
 import pytest
 
@@ -32,6 +40,7 @@ collect_ignore = (
 @pytest.fixture(scope="session")
 def qapp():
     qt_widgets = pytest.importorskip("PyQt6.QtWidgets")
+    from PyQt6.QtGui import QFontDatabase
 
     from xc_thermal_viewer.app import configure_graphics
     from xc_thermal_viewer.widgets.theme import apply_theme
@@ -41,6 +50,10 @@ def qapp():
         configure_graphics()
         app = qt_widgets.QApplication([])
         apply_theme(app)
+    assert QFontDatabase.families(), (
+        "Qt found no fonts; set QT_QPA_FONTDIR to a directory containing system fonts "
+        "before running offscreen widget tests."
+    )
     yield app
 
 
