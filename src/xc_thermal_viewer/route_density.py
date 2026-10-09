@@ -18,6 +18,7 @@ import pandas as pd
 import pyarrow.parquet as pq
 
 from .fingerprint import file_identity
+from .locking import exclusive
 from .route_index import available_archives, route_cache_path
 from .thermal_index import _check_cancel
 from .thermal_time import BASE_M, TimeGrid, load_grids, save_grids
@@ -108,8 +109,6 @@ def prepare_density(
     No decoder runs: the runs are the saved whole-flight Vilpellet segmentation.
     A complete product with a matching signature is reused.
     """
-    import fcntl
-
     disciplines = available_archives() if disciplines is None else disciplines
     if not disciplines:
         raise FileNotFoundError("Connect the processed flight archive")
@@ -118,8 +117,7 @@ def prepare_density(
     for disc in disciplines:
         _require_current_runs(disc)
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.with_suffix(".lock").open("a") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    with exclusive(path, "The thermal density is already being prepared"):
         if path.exists():
             with np.load(path, allow_pickle=False) as saved:
                 info = json.loads(str(saved["metadata"]))

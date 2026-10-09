@@ -24,6 +24,7 @@ from .core.preproc.enu import LocalFrame
 from .fingerprint import file_identity
 from .geodesy import enu_to_geodetic
 from .geography import FRANCE_EXTENT
+from .locking import exclusive
 from .thermal_geometry import CELL_M as INDEX_CELL_M
 from .thermal_geometry import project
 from .thermal_index import _check_cancel, cache_path
@@ -194,18 +195,12 @@ def _endpoint_rows(db, disciplines, progress, cancel, *, departure_only=False):
 
 def build_index(disciplines=None, *, path=None, progress=lambda _: None, cancel=None):
     """Atomically publish a resumable census, serializing writers with a lock."""
-    import fcntl
-
     disciplines = available_archives() if disciplines is None else disciplines
     if not disciplines:
         raise FileNotFoundError("Choose a data folder with the processed archives")
     path = route_cache_path(disciplines) if path is None else Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.with_suffix(".lock").open("a") as lock:
-        try:
-            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError as exc:
-            raise RuntimeError("The route census is already being prepared") from exc
+    with exclusive(path, "The route census is already being prepared"):
         saved = load_saved_index(disciplines, path=path)
         if saved is not None:
             return saved

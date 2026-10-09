@@ -32,6 +32,7 @@ from .core.preproc.enu import LocalFrame
 from .fingerprint import file_identity
 from .geodesy import enu_to_geodetic
 from .geography import FRANCE_EXTENT, TERRAIN_ORDER, classify_terrain
+from .locking import exclusive
 from .thermal_geometry import CELL_M, ThermalCell, cell_visits, climb_edges, project
 
 INDEX_VERSION = 1
@@ -381,17 +382,11 @@ def build_index(
     force: bool = False,
 ) -> ThermalIndex:
     """Serialize resumable builds; a second viewer never duplicates the scan."""
-    import fcntl
-
     if disciplines is None:
         disciplines = [d for d in DISCIPLINES.values() if d.derived_dir() is not None]
     path = cache_path(disciplines) if path is None else path
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.with_suffix(".lock").open("a") as lock:
-        try:
-            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError as exc:
-            raise RuntimeError("The cell cache is already being prepared") from exc
+    with exclusive(path, "The cell cache is already being prepared"):
         return _build_index(
             disciplines, path=path, progress=progress, cancel=cancel, force=force
         )

@@ -23,6 +23,8 @@ dependencies = [
     "matplotlib>=3.8",
     "Pillow>=10.0",
     "PyYAML>=6.0",
+    "filelock>=3.12",
+    "tzdata; sys_platform == 'win32'",
 ]
 
 [project.scripts]

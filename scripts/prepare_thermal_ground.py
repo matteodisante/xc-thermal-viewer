@@ -2,9 +2,9 @@
 """Rebase saved climb intersections on each cell's lowest IGN terrain elevation."""
 
 import argparse
-import fcntl
 from pathlib import Path
 
+from xc_thermal_viewer.locking import exclusive
 from xc_thermal_viewer.thermal_ground import upgrade_terrain_store
 from xc_thermal_viewer.thermal_store import find_store_path
 
@@ -18,8 +18,9 @@ def main():
     path = args.store or find_store_path()
     if path is None:
         parser.error("Connect the data folder or pass --store thermal-planes.sqlite3")
-    with path.with_name(".prepare.lock").open("a") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    with exclusive(
+        path.with_name(".prepare"), "Another offline preparation is already running."
+    ):
         upgrade_terrain_store(
             path,
             folder=args.terrain_directory,

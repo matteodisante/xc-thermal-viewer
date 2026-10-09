@@ -4,11 +4,11 @@
 from __future__ import annotations
 
 import argparse
-import fcntl
 import json
 import shutil
 import sqlite3
 import sys
+from contextlib import ExitStack
 from pathlib import Path
 from time import monotonic
 
@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
+from xc_thermal_viewer.locking import BusyError, exclusive  # noqa: E402
 from xc_thermal_viewer.thermal_index import build_index  # noqa: E402
 
 
@@ -97,11 +98,16 @@ def main() -> int:
                 neighbour_frames,
             )
 
-            with index.path.with_name(".prepare.lock").open("a") as lock:
+            with ExitStack() as held:
                 try:
-                    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                except BlockingIOError:
-                    print("Another offline preparation is already running.")
+                    held.enter_context(
+                        exclusive(
+                            index.path.with_name(".prepare"),
+                            "Another offline preparation is already running.",
+                        )
+                    )
+                except BusyError as exc:
+                    print(exc)
                     return 1
                 activity = prepare_activity(
                     index, workers=args.workers, progress=progress

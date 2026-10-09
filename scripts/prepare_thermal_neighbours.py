@@ -8,7 +8,6 @@ resume where the previous one stopped.
 """
 
 import argparse
-import fcntl
 import sys
 from pathlib import Path
 from time import monotonic
@@ -17,12 +16,15 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
+from xc_thermal_viewer.locking import BusyError, exclusive  # noqa: E402
 from xc_thermal_viewer.thermal_neighbours import (  # noqa: E402
     prepare_neighbour_imagery,
     prepare_neighbour_points,
     prepare_neighbour_terrain,
 )
 from xc_thermal_viewer.thermal_store import load_store  # noqa: E402
+
+BUSY = "Another offline preparation is already running."
 
 
 def main() -> int:
@@ -54,13 +56,8 @@ def main() -> int:
             print(message, flush=True)
             last = now
 
-    with store.with_name(".prepare.lock").open("a") as lock:
-        try:
-            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            print("Another offline preparation is already running.")
-            return 1
-        try:
+    try:
+        with exclusive(store.with_name(".prepare"), BUSY):
             if not args.terrain_only:
                 prepare_neighbour_points(store, workers=args.workers, progress=progress)
                 if not args.skip_imagery:
@@ -70,9 +67,12 @@ def main() -> int:
                         progress=lambda s: print(s, flush=True),
                     )
             prepare_neighbour_terrain(store, progress=lambda s: print(s, flush=True))
-        except KeyboardInterrupt:
-            print("Stopped. Completed work is kept; run again to resume.")
-            return 130
+    except BusyError as exc:
+        print(exc)
+        return 1
+    except KeyboardInterrupt:
+        print("Stopped. Completed work is kept; run again to resume.")
+        return 130
     print(f"Ready: {store} ({store.stat().st_size / 1e9:.3f} GB)")
     return 0
 

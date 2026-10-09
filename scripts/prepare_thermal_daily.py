@@ -2,9 +2,9 @@
 """Enrich the already prepared viewer file; no raw reads or segmentation."""
 
 import argparse
-import fcntl
 from pathlib import Path
 
+from xc_thermal_viewer.locking import exclusive
 from xc_thermal_viewer.thermal_daily import prepare_daily, prepare_reference_audit
 from xc_thermal_viewer.thermal_imagery import prepare_imagery
 from xc_thermal_viewer.thermal_store import load_store
@@ -17,8 +17,9 @@ def main():
     parser.add_argument("--skip-imagery", action="store_true")
     args = parser.parse_args()
     store = args.store or load_store().path
-    with store.with_name(".prepare.lock").open("a") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    with exclusive(
+        store.with_name(".prepare"), "Another offline preparation is already running."
+    ):
         prepare_reference_audit(store)
         prepare_daily(store, progress=lambda s: print(s, flush=True))
         if not args.skip_imagery:
