@@ -1,0 +1,58 @@
+name: Tests
+
+# The viewer must install and open on every desktop OS. Each push runs the full test
+# suite (Qt offscreen, no GPU) on Linux, macOS and Windows, and installs the package
+# the way a user does, with uvx, to catch files missing from the wheel.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Qt system libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3
+      - name: Lint
+        if: runner.os == 'Linux'
+        run: uv run --locked ruff check src tests scripts
+      - name: Tests
+        run: uv run --locked pytest
+
+  install:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Command-line entry point
+        run: uvx --python 3.12 --from . xc-thermal-viewer --help
+      - name: Configs and assets ship inside the package
+        run: >
+          uv run --isolated --no-project --python 3.12 --with . python -c
+          "from xc_thermal_viewer.core.config import load_preproc_config;
+          from xc_thermal_viewer.core.vilpellet import load_vilpellet_config;
+          from xc_thermal_viewer.geography import load_basemap;
+          load_preproc_config(); load_vilpellet_config();
+          assert load_basemap() is not None"
