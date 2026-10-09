@@ -55,37 +55,15 @@ The folder can be moved or copied to another computer as is: saved products iden
 their inputs by their place inside the folder and their content, never by absolute
 path or file date.
 
-## Building a data folder (maintainers)
 
-`scripts/pack_data_folder.py` builds the folder from the thesis archive
-([soaring-anomalous-transport](https://github.com/matteodisante/soaring-anomalous-transport)),
-copying only what the viewer reads and checking each saved product against the thesis
-code before marking it valid here:
-
-```bash
-uv run python scripts/pack_data_folder.py --dry-run \
-    --para /Volumes/SSD/paragliders/ffvl_cfd_igc \
-    --hang /Volumes/SSD/hang_gliders/delta_cfd_igc \
-    --to /Volumes/Other/xc-data
-```
-
-Drop `--dry-run` to copy. Never point the viewer at the thesis archive itself: its
-preparation steps rewrite saved products in place.
-
-The `scripts/prepare_*.py` scripts rebuild the saved products of a data folder from its
-tracks and tables. Set `XC_THERMAL_VIEWER_DATA` to the folder first; each script's
-`--help` says what it prepares.
 
 ## Development
 
 ```bash
 uv sync
 QT_QPA_PLATFORM=offscreen uv run pytest
-uv run ruff check src tests scripts
-```
 
-Tests run without a display. Those needing a real GPU are skipped unless
-`XC_THERMAL_VIEWER_NATIVE_OPENGL=1`.
+
 
 ## Origin and licences
 
