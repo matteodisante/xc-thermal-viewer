@@ -148,6 +148,7 @@ def test_data_folder_button_asks_the_window(qapp, monkeypatch):
 def test_search_stays_clickable_without_scrolling_a_small_sidebar(qapp, monkeypatch):
     from PyQt6.QtCore import QSize, Qt
     from PyQt6.QtTest import QTest
+    from PyQt6.QtWidgets import QWidget
 
     searches = []
     monkeypatch.setattr(FlightPicker, "_repopulate_filter_combos", lambda self: None)
@@ -156,7 +157,19 @@ def test_search_stays_clickable_without_scrolling_a_small_sidebar(qapp, monkeypa
     picker.resize(260, 550)
     picker.show()
     qapp.processEvents()
-    assert picker.size() == QSize(260, 550)
+    widest = sorted(
+        (
+            child.minimumSizeHint().width(),
+            type(child).__name__,
+            getattr(child, "text", lambda: "")(),
+        )
+        for child in picker.findChildren(QWidget)
+        if child.isVisibleTo(picker)
+    )[-8:]
+    assert picker.size() == QSize(260, 550), (
+        f"font {picker.font().toString()}, DPI {picker.logicalDpiX()}, "
+        f"widest controls {widest}"
+    )
     button = picker._btn_search
     center = button.mapTo(picker, button.rect().center())
     assert picker.rect().contains(center)
