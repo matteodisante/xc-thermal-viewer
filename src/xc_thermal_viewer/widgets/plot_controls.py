@@ -92,7 +92,9 @@ class PlotControls(QWidget):
         view3d_row.addWidget(labeled_control("Elevation", elev_unit))
         view3d_row.addWidget(labeled_control("Zoom", zoom_unit))
         view3d_row.addWidget(self._btn_reset_view)
-        self._box_3d_view = QGroupBox("3D view (drag the plot, or use the sliders)")
+        # A group box is never narrower than its title: keep it short.
+        self._box_3d_view = QGroupBox("3D view")
+        self._box_3d_view.setToolTip("Drag the plot, or use the sliders.")
         self._box_3d_view.setLayout(view3d_row)
 
         self._chk_dms = QCheckBox("Degrees-minutes-seconds")
@@ -101,9 +103,14 @@ class PlotControls(QWidget):
         self._chk_raw.setChecked(True)
         self._chk_cleaned.setChecked(True)
         self._color_combo = QComboBox()
-        self._color_combo.addItem("Flight phase (Vilpellet)", "phase")
-        self._color_combo.addItem("Preprocessing segment", "segment")
-        self._color_combo.addItem("Single discipline colour", "single")
+        # Short items: the combo is as wide as its longest one.
+        self._color_combo.addItem("Flight phase", "phase")
+        self._color_combo.addItem("Cleaning segment", "segment")
+        self._color_combo.addItem("Discipline", "single")
+        self._color_combo.setToolTip(
+            "Colour of the cleaned track: Vilpellet flight phase, preprocessing "
+            "segment, or one colour per discipline."
+        )
         self._chk_climb_only = QCheckBox("Thermals only (climb)")
         self._btn_save_pdf = QPushButton("Save PDF…")
         self._info = InfoButton("trajectory", self)
