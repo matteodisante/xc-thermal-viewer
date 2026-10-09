@@ -9,26 +9,16 @@ with their flight phases (Vilpellet segmentation), launch maps, thermal planes o
 
 **[uv](https://docs.astral.sh/uv/)** and **git**. You do not need to install Python
 or any library yourself. Works on macOS, Linux and Windows; the 3D views need
-OpenGL 3.3. Every command below works in a macOS or Linux terminal, in Git Bash and
-in PowerShell on Windows, unless a block says otherwise.
+OpenGL 3.3. On Windows, use **Git Bash** as your terminal: it comes with
+[Git for Windows](https://git-scm.com/downloads/win), and every command below works
+there as on macOS and Linux.
 
-Check what you have:
+Check what you have; each command prints a version number, or an error if the tool is
+missing:
 
 ```bash
 uv --version
 git --version
-```
-
-Install uv if it is missing, then open a new terminal:
-
-```bash
-# macOS and Linux
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-```powershell
-# Windows (in PowerShell, also if you then use Git Bash)
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
 Install git if it is missing:
@@ -38,11 +28,16 @@ Install git if it is missing:
 xcode-select --install
 # Linux (Debian, Ubuntu)
 sudo apt install git
+# Windows: install Git for Windows from https://git-scm.com/downloads/win
 ```
 
-```powershell
-# Windows (PowerShell)
-winget install --id Git.Git -e --source winget
+Install uv if it is missing, then open a new terminal:
+
+```bash
+# macOS and Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+# Windows (Git Bash)
+winget install --id=astral-sh.uv -e
 ```
 
 ### What uv does on the first launch
@@ -61,8 +56,7 @@ them and start quickly. `uv cache clean` deletes the viewer and its libraries;
 
 ## Run it
 
-1. Launch the viewer (same command in every terminal, Git Bash and PowerShell
-   included):
+1. Launch the viewer (same command on every system):
 
    ```bash
    uvx --from git+https://github.com/matteodisante/xc-thermal-viewer xc-thermal-viewer
@@ -83,11 +77,6 @@ uvx --from git+https://github.com/matteodisante/xc-thermal-viewer xc-thermal-vie
 ```bash
 # Windows (Git Bash)
 uvx --from git+https://github.com/matteodisante/xc-thermal-viewer xc-thermal-viewer D:/xc-thermal-viewer-data
-```
-
-```powershell
-# Windows (PowerShell)
-uvx --from git+https://github.com/matteodisante/xc-thermal-viewer xc-thermal-viewer D:\xc-thermal-viewer-data
 ```
 
 From a clone of this repository, `uv run xc-thermal-viewer` does the same.
