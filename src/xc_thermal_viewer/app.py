@@ -152,6 +152,9 @@ def main(argv: list[str] | None = None) -> int:
             from .main_window import MainWindow
 
             window = MainWindow()
+            # Carry over the screen, normal size/position and native fullscreen or
+            # maximized state before showing the analysis window.
+            window.restoreGeometry(welcome.saveGeometry())
             window.show()
         except (Exception, SystemExit) as error:
             # Exceptions must not escape a Qt callback, which would abort the app.

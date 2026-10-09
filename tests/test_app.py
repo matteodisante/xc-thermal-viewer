@@ -170,3 +170,76 @@ assert entrypoint.main() == 0
 assert events == ["welcome closed"]
 """
     _run_startup(code)
+
+
+@pytest.mark.parametrize("mode", ["normal", "maximized", "fullscreen"])
+def test_start_preserves_window_state_and_restored_geometry(tmp_path, mode):
+    (tmp_path / "paragliders").mkdir()
+    code = """
+import sys
+from types import ModuleType
+from PyQt6.QtCore import QRect, QTimer, Qt
+from PyQt6.QtWidgets import QWidget
+from xc_thermal_viewer.app import main
+from xc_thermal_viewer.widgets import welcome as welcome_module
+
+mode = MODE
+expected = {}
+checked = []
+state_mask = Qt.WindowState.WindowMaximized | Qt.WindowState.WindowFullScreen
+
+class CheckedWelcome(welcome_module.WelcomeScreen):
+    scheduled = False
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if not self.scheduled:
+            self.scheduled = True
+            QTimer.singleShot(0, self.prepare)
+
+    def prepare(self):
+        self.setGeometry(QRect(38, 42, 710, 535))
+        if mode == "maximized":
+            self.showMaximized()
+        elif mode == "fullscreen":
+            self.showFullScreen()
+        QTimer.singleShot(0, self.enter)
+
+    def enter(self):
+        expected["state"] = self.windowState() & state_mask
+        expected["normal"] = self.normalGeometry()
+        expected["screen"] = self.screen()
+        self._start.click()
+
+class Window(QWidget):
+    scheduled = False
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if not self.scheduled:
+            self.scheduled = True
+            QTimer.singleShot(0, self.inspect)
+
+    def inspect(self):
+        assert self.isVisible()
+        assert self.windowState() & state_mask == expected["state"]
+        assert self.screen() is expected["screen"]
+        # Exiting fullscreen/maximized must return to the size chosen on Home.
+        self.showNormal()
+        QTimer.singleShot(0, self.inspect_restored)
+
+    def inspect_restored(self):
+        assert self.geometry() == expected["normal"], (
+            self.geometry(), expected["normal"]
+        )
+        checked.append(mode)
+        self.close()
+
+welcome_module.WelcomeScreen = CheckedWelcome
+module = ModuleType("xc_thermal_viewer.main_window")
+module.MainWindow = Window
+sys.modules[module.__name__] = module
+assert main([]) == 0
+assert checked == [mode]
+"""
+    _run_startup(code.replace("MODE", repr(mode)), data_folder=tmp_path)
