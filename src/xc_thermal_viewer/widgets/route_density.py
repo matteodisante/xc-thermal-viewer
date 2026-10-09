@@ -10,8 +10,6 @@ from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QLabel,
-    QMessageBox,
-    QPushButton,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -43,8 +41,6 @@ class RouteDensity(QWidget):
             "Sum recorded seconds into larger ground pixels, then divide by their "
             "area. This grid is independent of the 10 km departure/arrival cells."
         )
-        help_button = QPushButton("What is h/km²?")
-        help_button.clicked.connect(self.show_help)
         self.legend = QLabel()
         self.legend.setFixedWidth(160)
         self.range = QLabel()
@@ -57,7 +53,6 @@ class RouteDensity(QWidget):
             self.opacity,
             self.legend,
             self.range,
-            help_button,
         ):
             flow.addWidget(widget)
         layout = QVBoxLayout(self)
@@ -159,30 +154,3 @@ class RouteDensity(QWidget):
             self.mesh.density_opacity = self.opacity.value() / 100
             self.mesh.set_density_visible(self.enabled.isChecked())
             self.mesh.update()
-
-    def show_help(self):
-        """Explain accumulated flight time with a concrete area-normalised example."""
-        QMessageBox.information(
-            self,
-            "What does thermal density measure?",
-            "<b>A stopwatch for each ground pixel.</b><br><br>"
-            "Add the time every recorded pilot spends above this pixel while "
-            "classified as climbing. Different dates and heights all contribute. "
-            "Two pilots in the same thermal each add their own time.<br><br>"
-            "In a 1 km² pixel, 10 + 20 + 30 minutes from three flights give "
-            "1 recorded hour, hence <b>1 h/km²</b>.<br><br>"
-            "The underlying grid is 50 x 50 m = 0.0025 km²: 36 seconds there "
-            "give 0.01 h / 0.0025 km² = <b>4 h/km²</b>. That pixel still contains "
-            "only 36 recorded seconds, not four hours.<br><br>"
-            "Larger pixels sum the original seconds and divide by their new area. "
-            "They do not create observations between flights.<br><br>"
-            "<b>Source:</b> the same saved Vilpellet climb runs as Thermal density "
-            "regions, on the native fixes; consecutive fixes in one climb run only, "
-            "with data gaps (steps above 1.5 times the segment's median sampling "
-            "interval) excluded. "
-            "Time is split at pixel boundaries assuming linear motion.<br><br>"
-            "This measures cumulative recorded climb time, not thermal counts, "
-            "probability, or yearly frequency. No recorded climb time can also "
-            "mean no flight visited. Route and fastest/slowest filters never "
-            "change this all-flight background.",
-        )

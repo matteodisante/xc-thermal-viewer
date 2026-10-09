@@ -7,7 +7,6 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QFileDialog,
     QLabel,
-    QMessageBox,
     QPushButton,
     QSpinBox,
     QVBoxLayout,
@@ -20,41 +19,8 @@ from ..route_index import build_index, load_saved_index
 from ..thermal_daily import PARIS
 from .flow_layout import FlowLayout, labeled_control
 from .group_scene import GroupScene
+from .help import help_buttons
 from .route_comparison import _RouteWorker
-
-HELP = """<h3>Launch groups</h3>
-<p>Flights share a departure cell, with independent destinations and path lengths.
-Departure and arrival mean the first and last <b>retained cleaned fixes</b>, not a
-separate physical takeoff/landing detector.</p>
-<p><b>Disjoint windows:</b> for each cell and Paris calendar day, sort departures.
-The first unassigned departure opens a window of W elapsed minutes. Include all
-remaining departures up to and including its end, then repeat from the next flight.
-Each flight belongs to exactly one window. Display only windows with at least the
-chosen minimum number of flights. Singletons also consume their window.</p>
-<p>For W=30 minutes, 10:00 and 10:20 belong together; 10:40 opens the next window.
-This deterministic rule avoids overlapping groups. Its boundaries depend on the
-first departure, so changing W can redistribute later groups. There is no chaining
-of consecutive 30-minute gaps into a longer group.</p>
-<p><b>Ranking:</b> grouped flights counts each qualifying flight once. Other choices
-rank by largest group or number of groups. Counts pool the selected years and
-disciplines. Flights with unknown dates do not participate; their count is shown.</p>
-<p><b>Time:</b> Europe/Paris in the table, UTC for elapsed-time comparisons, including
-DST changes. Cleaned relative times use the IGC clock origin and trimming offset.
-Geometry always comes from cleaned fixes. No geometry is drawn from raw files.</p>
-<p><b>Map:</b> all group members, without sampling. Blue → cyan → lime follows departure
-order; select rows to highlight paths in white. Selected rows only isolates them.
-Tick or untick Show / order to show or hide individual paths and endpoint markers.
-Hidden flights stay in the list. Show all flights checks every row and restores the
-All view; Hide all flights clears the checkboxes. A newly loaded group starts checked.
-Path distance sums supported horizontal Lambert-93 edges; gaps are excluded.
-The heat layer uses <b>all available Vilpellet-classified flights crossing the
-area, all dates</b>,
-exactly like Routes. It does not describe weather on the selected group's day.</p>
-<p>Sharing a launch window identifies a comparison cohort. It does not establish
-that pilots flew together throughout the flight. Different grid sizes can merge or
-split nearby launch sites. The saved grid covers metropolitan France's viewing
-bounds; destinations can lie outside them. Terrain coverage is reported separately.</p>
-"""
 
 
 class GroupFlights(QWidget):
@@ -97,10 +63,7 @@ class GroupFlights(QWidget):
             )
         self._load = QPushButton("Load selected group")
         self._export = QPushButton("Export group CSV")
-        info = QPushButton("How groups work")
-        info.clicked.connect(
-            lambda: QMessageBox.information(self, "Launch groups", HELP)
-        )
+        self._info, self._howto = help_buttons("groups", self)
         self._status = QLabel(
             "Select a cell size and time window. Saved clocks load when this tab opens."
         )
@@ -117,7 +80,8 @@ class GroupFlights(QWidget):
             self._year,
             self._prepare,
             self._cancel,
-            info,
+            self._info,
+            self._howto,
         ):
             top.addWidget(widget)
         selection = FlowLayout()

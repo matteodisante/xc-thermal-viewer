@@ -47,7 +47,7 @@ from ..thermal_store import (
     neighbour_frames,
 )
 from .flow_layout import ControlPanel, FlowLayout, labeled_control
-from .thermal_info import ThermalInfo
+from .help import help_buttons
 
 NEIGHBOURS_MISSING = (
     "Neighbouring cells are not prepared in the data folder. Run "
@@ -335,9 +335,7 @@ class ThermalPlane(QWidget):
         self._details = QPushButton("Cell details")
         self._details.setCheckable(True)
         self._details.toggled.connect(self._summary.setVisible)
-        self._info = QPushButton("Info")
-        self._info.setToolTip("Data sources, terrain reference and climb intersections")
-        self._info_panel: ThermalInfo | None = None
+        self._info, self._howto = help_buttons("planes", self)
         self._terrain_3d_panel = None
         self._terrain_3d = QPushButton("3D terrain · selected cell")
         self._terrain_3d.setToolTip(
@@ -345,7 +343,6 @@ class ThermalPlane(QWidget):
             "IGN terrain and all intersections every 20 m, for the selected dates"
         )
         self._terrain_3d.clicked.connect(self._show_terrain_3d)
-        self._info.clicked.connect(self._show_info)
         self._summary.hide()
         top = FlowLayout()
         for widget in (self._mode, self._cells):
@@ -432,6 +429,7 @@ class ThermalPlane(QWidget):
         for button in (
             self._terrain_3d,
             self._info,
+            self._howto,
             self._details,
             self._build,
             self._load,
@@ -1267,13 +1265,6 @@ class ThermalPlane(QWidget):
         )
         self._terrain_3d_panel.show()
         self._terrain_3d_panel.raise_()
-
-    def _show_info(self):
-        """Open the explanatory panel, creating it on first use."""
-        if self._info_panel is None:
-            self._info_panel = ThermalInfo(self)
-        self._info_panel.show()
-        self._info_panel.raise_()
 
     def _rank(self, cell):
         """Population rank is local to an altitude category, never across categories."""

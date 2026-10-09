@@ -42,9 +42,9 @@ from ..thermal_geometry import unproject
 from ..thermal_index import CancelledError
 from .departure_filter import DepartureFilter
 from .flow_layout import FlowLayout
+from .help import help_buttons
 from .route_density import RouteDensity
 from .route_locator import RouteLocator
-from .screen_info import InfoButton
 
 COLOURS = {"fast": "#00e5ff", "slow": "#7cff32", "other": "#edf6ff", "both": "#65aaff"}
 SELECTED_COLOUR = "#1464ff"
@@ -135,7 +135,7 @@ class RouteComparison(QWidget):
         self._load = QPushButton("Load selected pair")
         self._cancel = QPushButton("Cancel")
         self._cancel.setEnabled(False)
-        self._info = InfoButton("routes", self)
+        self._info, self._howto = help_buttons("routes", self)
         self._departure = DepartureFilter(self)
         controls = FlowLayout()
         for widget in (
@@ -147,6 +147,7 @@ class RouteComparison(QWidget):
             self._load,
             self._cancel,
             self._info,
+            self._howto,
         ):
             controls.addWidget(widget)
         self._mode = QComboBox()

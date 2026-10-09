@@ -36,7 +36,7 @@ from xc_thermal_viewer.core.style import ILLUSTRATION_COLORS
 from .. import catalog_index, geography
 from ..core.disciplines import DISCIPLINES
 from .flow_layout import FlowLayout, labeled_control
-from .screen_info import InfoButton
+from .help import help_buttons
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -160,7 +160,7 @@ class MapView(QWidget):
         for name in geography.TERRAIN_ORDER:
             self._terrain_combo.addItem(name, name)
         self._btn_reload = QPushButton("Reload")
-        self._info = InfoButton("map", self)
+        self._info, self._howto = help_buttons("map", self)
         self._status = QLabel("Not loaded yet -- switch to this tab, or press Reload.")
         self._status.setWordWrap(True)
 
@@ -171,6 +171,7 @@ class MapView(QWidget):
         top.addWidget(labeled_control("Terrain", self._terrain_combo))
         top.addWidget(self._btn_reload)
         top.addWidget(self._info)
+        top.addWidget(self._howto)
 
         self._figure = Figure(figsize=(8.0, 6.0))
         self._canvas = FigureCanvasQTAgg(self._figure)

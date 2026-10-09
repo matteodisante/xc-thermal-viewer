@@ -28,6 +28,7 @@ from xc_thermal_viewer.core.style import DISCIPLINE_COLORS
 from . import data, datafolder, plotting
 from .widgets.flight_picker import FlightPicker
 from .widgets.group_flights import GroupFlights
+from .widgets.info_browser import set_methods_opener
 from .widgets.map_focus import MapFocus
 from .widgets.map_view import MapView
 from .widgets.plot_controls import PlotControls
@@ -134,6 +135,8 @@ class MainWindow(QMainWindow):
         self._sources_methods = SourcesMethods()
         # "&&": a single "&" would underline the next letter as a shortcut.
         self._tabs.addTab(self._sources_methods, "Sources && methods")
+        # Links in any Info window open their section of Sources & methods here.
+        set_methods_opener(self.show_methods)
         # The map's take-off points are only read from disk the first time this tab is
         # actually shown, not at startup: a full catalog + flights_meta read for both
         # disciplines is seconds of work the app should not pay before its window
@@ -253,6 +256,15 @@ class MainWindow(QMainWindow):
         self._route_comparison.shutdown()
         self._group_flights.shutdown()
         super().closeEvent(event)
+
+    def show_methods(self, anchor: str) -> None:
+        """Bring the window forward on one section of the Sources & methods tab."""
+        if self._fullscreen_state is not None:
+            self._exit_full_screen()
+        self._tabs.setCurrentWidget(self._sources_methods)
+        self._sources_methods.show_section(anchor)
+        self.raise_()
+        self.activateWindow()
 
     def _update_title(self) -> None:
         """Name the data folder in the window title, so it is never ambiguous."""

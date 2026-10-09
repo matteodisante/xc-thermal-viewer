@@ -10,7 +10,6 @@ from matplotlib.figure import Figure
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import (
     QComboBox,
-    QDialog,
     QDoubleSpinBox,
     QLabel,
     QPushButton,
@@ -26,86 +25,8 @@ from ..thermal_time import cache_path, load_grids
 from ..thermal_time_prepare import SOURCE
 from .density_background import DensityBackgrounds
 from .flow_layout import FlowLayout
-from .info_browser import info_browser
-from .source_notes import FLIGHT_SOURCE_HTML, background_sources_html
+from .help import help_buttons
 from .thermal_plane import _Worker
-
-INFO_HTML = f"""
-<h2>Thermal density</h2>
-<p><b>Cumulative climb time per ground area, in hours/km².</b>
-All archived dates and heights; paragliders and hang gliders pooled.</p>
-
-<h3>Calculation</h3>
-<ol>
-<li><b>Select:</b> consecutive fixes in the same Vilpellet climb run. Keep gaps,
-phase boundaries and separate flights apart.</li>
-<li><b>Project:</b> positions to Lambert-93. Pool every altitude.</li>
-<li><b>Split time:</b> assume linear motion along each edge and assign its time
-to the 50 &times; 50 m pixels it crosses. A stationary edge adds its full duration
-to its pixel.</li>
-<li><b>Sum:</b> D(B) = seconds inside pixel B / (3600 &times; area(B) in km²).</li>
-</ol>
-<p><b>Example:</b> 36 seconds in one pixel give
-0.01 hours / 0.0025 km² = <b>4 hours/km²</b>.</p>
-
-<h3>Regions and cells</h3>
-<ul>
-<li><b>Regions:</b> five thesis areas plus a margin, cut from the national
-grid of the Routes tab. Native fixes of the saved Vilpellet climb runs; steps
-longer than 1.5 times the segment's median sampling interval are gaps and are
-excluded.</li>
-<li><b>Cells:</b> the twelve Thermal planes squares; their saved Vilpellet
-climb edges.</li>
-<li><b>Coverage:</b> all trajectories crossing the frame, including take-offs
-elsewhere. This tab has no date or height filter.</li>
-</ul>
-
-<h3>Reading the map</h3>
-<ul>
-<li><b>Interpretation:</b> recorded climb time. Frequently flown sites, long
-climbs and simultaneous pilots each add time. Values are neither encounter
-probabilities, thermal counts nor yearly rates.</li>
-<li><b>Transparent:</b> zero recorded climb time, including unvisited areas.
-This does not establish absence of thermals. Regional frames can overlap;
-do not add their totals.</li>
-<li><b>Colour:</b> one logarithmic scale for all panels, methods and zooms.
-Lower limit 0.01 hours/km²; upper limit the larger of 1 and the product's largest
-50 m value. Smaller positive values use the lightest colour.</li>
-<li><b>Zoom:</b> mouse wheel or toolbar; drag with the hand tool.
-Coarser pixels sum time and area. Maximum thermal detail is 50 m;
-axes show Lambert-93 kilometres.</li>
-<li><b>Titles:</b> climb hours over the whole frame.
-Terrain and Density adjust background and density opacity separately.</li>
-</ul>
-
-<h3>Sources and backgrounds</h3>
-<p>{FLIGHT_SOURCE_HTML}: processed IGC positions and times supply the paths
-and durations. Vilpellet climb labels select which intervals contribute.</p>
-{background_sources_html()}
-<ul>
-<li><b>Access:</b> time grids are saved in the data folder. Detailed saved cell maps are
-reused; other views load online and remain available offline while cached
-(512 MiB).</li>
-<li><b>Map detail:</b> up to 2048 pixels per side, down to 1.25 m/pixel.
-Photo dates differ from flight dates.</li>
-<li><b>Failed request:</b> the previous background may remain at its old
-resolution; the status line reports it.</li>
-</ul>
-"""
-
-
-class DensityInfo(QDialog):
-    """How the density maps are computed."""
-
-    def __init__(self, parent=None):
-        """Show the complete definition alongside the plots."""
-        super().__init__(parent)
-        self.setWindowTitle("Thermal density: methods and sources")
-        self.resize(780, 780)
-        text = info_browser(self)
-        text.setHtml(INFO_HTML)
-        layout = QVBoxLayout(self)
-        layout.addWidget(text)
 
 
 class ThermalDensity(QWidget):
@@ -123,7 +44,6 @@ class ThermalDensity(QWidget):
         self._maps = None
         self._map_note = ""
         self._map_errors = {}
-        self._info_panel = None
         self._norm = LogNorm(0.01, 1, clip=True)
         self._area = QComboBox()
         self._area.addItem("Regions", "regions")
@@ -144,8 +64,7 @@ class ThermalDensity(QWidget):
             self._background.addItem(text, kind)
         self._terrain = self._opacity(85, "% terrain")
         self._strength = self._opacity(80, "% density")
-        self._info = QPushButton("Info")
-        self._info.setToolTip("How hours/km² are computed")
+        self._info, self._howto = help_buttons("density", self)
         self._reload = QPushButton("Reload data")
         self._status = QLabel("Prepare with scripts/prepare_thermal_density.py.")
         self._status.setWordWrap(True)
@@ -159,7 +78,7 @@ class ThermalDensity(QWidget):
         self._canvas.mpl_connect("resize_event", lambda _: self._debounce.start())
         self._canvas.mpl_connect("scroll_event", self._scroll)
         top, look = FlowLayout(), FlowLayout()
-        for widget in (self._area, self._item, self._reload, self._info):
+        for widget in (self._area, self._item, self._reload, self._info, self._howto):
             top.addWidget(widget)
         look.addWidget(QLabel("Background"))
         for widget in (self._background, self._terrain, self._strength, self._toolbar):
@@ -175,7 +94,6 @@ class ThermalDensity(QWidget):
         self._terrain.valueChanged.connect(self._terrain_changed)
         self._strength.valueChanged.connect(self._strength_changed)
         self._reload.clicked.connect(self._load)
-        self._info.clicked.connect(self._show_info)
         self._area_changed()
 
     @staticmethod
@@ -261,12 +179,6 @@ class ThermalDensity(QWidget):
             self._worker = None
             self._reload.setEnabled(True)
         worker.deleteLater()
-
-    def _show_info(self):
-        if self._info_panel is None:
-            self._info_panel = DensityInfo(self)
-        self._info_panel.show()
-        self._info_panel.raise_()
 
     def _rank(self, cell):
         return [c for c in self._cells if c.terrain == cell.terrain].index(cell) + 1

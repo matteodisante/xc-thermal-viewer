@@ -26,7 +26,7 @@ from PyQt6.QtWidgets import (
 )
 
 from .flow_layout import FlowLayout, labeled_control
-from .screen_info import InfoButton
+from .help import help_buttons
 
 _GEOGRAPHIC_AXES = [("lon", "Longitude"), ("lat", "Latitude"), ("alt", "Altitude")]
 _ENU_AXES = [("E", "East"), ("N", "North"), ("z", "Altitude (z)")]
@@ -113,7 +113,7 @@ class PlotControls(QWidget):
         )
         self._chk_climb_only = QCheckBox("Thermals only (climb)")
         self._btn_save_pdf = QPushButton("Save PDF…")
-        self._info = InfoButton("trajectory", self)
+        self._info, self._howto = help_buttons("trajectory", self)
 
         display_row = FlowLayout()
         display_row.addWidget(self._chk_dms)
@@ -123,6 +123,7 @@ class PlotControls(QWidget):
         display_row.addWidget(self._chk_climb_only)
         display_row.addWidget(self._btn_save_pdf)
         display_row.addWidget(self._info)
+        display_row.addWidget(self._howto)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)

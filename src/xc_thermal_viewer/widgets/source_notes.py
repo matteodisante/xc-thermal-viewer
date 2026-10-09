@@ -1,6 +1,5 @@
-"""Source links and map uses shared by the information pages."""
+"""Links to the data sources, shared by the help pages and the status lines."""
 
-from ..thermal_imagery import LAYERS
 from ..thermal_relief import SOURCE_URL as HILLSHADE_URL
 
 FFVL_PARAGLIDING = "https://parapente.ffvl.fr/cfd/liste"
@@ -22,40 +21,24 @@ ORTHO_DATES = (
     "&amp;TYPENAMES=ORTHOIMAGERY.ORTHOPHOTOS.GRAPHE-MOSAIQUAGE:graphe_bdortho"
 )
 LICENCE_OUVERTE = "https://www.etalab.gouv.fr/licence-ouverte-open-licence/"
+VILPELLET_PAPER = "https://arxiv.org/abs/2601.01293"
 
 FLIGHT_SOURCE_HTML = (
     f'<a href="{FFVL_PARAGLIDING}">FFVL CFD paragliders</a> / '
     f'<a href="{FFVL_HANG_GLIDING}">hang gliders</a>'
 )
 
-
-def background_sources_html() -> str:
-    """Name each background's data, viewer control and purpose."""
-    return f"""
-<p>Backgrounds in <b>Thermal planes</b> and <b>Thermal density</b>:</p>
-<ul>
-<li><a href="{PLAN_IGN}" title="{LAYERS["colour"]}">IGN Plan IGN v2</a>:
-<b>Colour map</b>. A drawn map: roads, place names and symbols for land features.
-Use it to locate flights and identify places.</li>
-<li><a href="{BD_ORTHO}" title="{LAYERS["aerial"]}">IGN BD ORTHO</a>:
-<b>Aerial photo</b>. Actual aerial photographs, corrected to align with map
-coordinates. Use them to see fields, forests and buildings beneath the flights.</li>
-<li><a href="{CONTOURS}" title="{LAYERS["topography"]}">IGN elevation contours</a>:
-<b>Topography + contours</b>. The same Colour map, with elevation lines added.
-Each line joins locations at the same ground altitude; closer lines indicate
-steeper slopes. Use them to read terrain height and slope.</li>
-<li><a href="{HILLSHADE_URL}">Esri World Hillshade</a>:
-<b>Shaded relief</b>. Shaded terrain to locate ridges and valleys.</li>
-</ul>
-<p>These images provide visual context. Flight counts, climb labels and plane
-altitudes are calculated independently of the selected background.</p>
-"""
-
-
-def aerial_dates_html() -> str:
-    """Explain the separate source used to date the aerial photographs."""
-    return f"""
-<p><a href="{ORTHO_DATES}">IGN BD ORTHO mosaic graph</a>: acquisition dates
-shown below the <b>Thermal planes</b> controls. They date the photographs;
-flight dates come from IGC recordings. A cell can contain several photo dates.</p>
-"""
+__all__ = [
+    "BD_ORTHO",
+    "CONTOURS",
+    "FFVL_HANG_GLIDING",
+    "FFVL_PARAGLIDING",
+    "FLIGHT_SOURCE_HTML",
+    "HILLSHADE_URL",
+    "LICENCE_OUVERTE",
+    "NATURAL_EARTH",
+    "NATURAL_EARTH_WORLD",
+    "ORTHO_DATES",
+    "PLAN_IGN",
+    "VILPELLET_PAPER",
+]
