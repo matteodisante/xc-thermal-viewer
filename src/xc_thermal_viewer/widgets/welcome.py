@@ -39,34 +39,61 @@ def _polygon(points: tuple[tuple[float, float], ...]) -> QPolygonF:
 
 
 def _draw_landscape(painter: QPainter) -> None:
-    """Paint the original Alpine illustration in a fixed coordinate system."""
+    """Paint a sunlit Alpine illustration in a fixed coordinate system."""
     painter.setPen(Qt.PenStyle.NoPen)
     sky = QLinearGradient(0, 0, 0, _SCENE_HEIGHT)
-    sky.setColorAt(0, QColor("#102c42"))
-    sky.setColorAt(0.42, QColor("#467881"))
-    sky.setColorAt(0.66, QColor("#b1b3a0"))
-    sky.setColorAt(1, QColor("#264d55"))
+    sky.setColorAt(0, QColor("#479ed5"))
+    sky.setColorAt(0.42, QColor("#aad5e9"))
+    sky.setColorAt(0.66, QColor("#e5ecdb"))
+    sky.setColorAt(1, QColor("#7fa99b"))
     painter.fillRect(QRectF(0, 0, _SCENE_WIDTH, _SCENE_HEIGHT), sky)
 
-    glow = QRadialGradient(QPointF(1160, 320), 550)
-    glow.setColorAt(0, QColor(255, 220, 155, 97))
-    glow.setColorAt(0.35, QColor(237, 205, 151, 36))
-    glow.setColorAt(1, QColor(237, 205, 151, 0))
+    # A high, radiant sun makes the daytime setting clear above the thermal climbs.
+    sun = QPointF(1160, 150)
+    glow = QRadialGradient(sun, 280)
+    glow.setColorAt(0, QColor(255, 234, 151, 195))
+    glow.setColorAt(0.22, QColor(255, 229, 133, 100))
+    glow.setColorAt(0.55, QColor(255, 240, 177, 32))
+    glow.setColorAt(1, QColor(255, 244, 196, 0))
     painter.fillRect(QRectF(0, 0, _SCENE_WIDTH, _SCENE_HEIGHT), glow)
-    painter.setBrush(QColor(255, 231, 181, 153))
-    painter.drawEllipse(QPointF(1160, 319), 29, 29)
+    # Keep the sun circular when the landscape stretches to fit a compact window.
+    painter.save()
+    transform = painter.worldTransform()
+    painter.translate(sun)
+    painter.scale(1, transform.m11() / transform.m22())
+    sun = QPointF(0, 0)
+    painter.setPen(
+        QPen(
+            QColor(255, 239, 166, 165),
+            2,
+            Qt.PenStyle.SolidLine,
+            Qt.PenCapStyle.RoundCap,
+        )
+    )
+    for ray in range(12):
+        angle = ray * math.tau / 12
+        direction = QPointF(math.cos(angle), math.sin(angle))
+        painter.drawLine(sun + direction * 48, sun + direction * 61)
+    painter.setPen(Qt.PenStyle.NoPen)
+    disk = QRadialGradient(sun, 35)
+    disk.setColorAt(0, QColor("#fffde4"))
+    disk.setColorAt(0.72, QColor("#fff3aa"))
+    disk.setColorAt(1, QColor("#ffce60"))
+    painter.setBrush(disk)
+    painter.drawEllipse(sun, 35, 35)
+    painter.restore()
 
     # Wind-stretched high clouds; deliberately quiet behind the flight paths.
     for x, y, width in ((600, 164, 490), (915, 227, 390), (770, 290, 270)):
         cloud = QPainterPath(QPointF(x, y))
         cloud.cubicTo(x + width * 0.3, y - 10, x + width * 0.7, y + 4, x + width, y)
         cloud.cubicTo(x + width * 0.7, y + 9, x + width * 0.2, y + 2, x, y)
-        painter.fillPath(cloud, QColor(227, 235, 219, 17))
+        painter.fillPath(cloud, QColor(255, 255, 244, 75))
 
     # Each ridge has its own depth and lighting, with asymmetric shaded faces.
     ridges = (
         (
-            "#739498",
+            "#9abcc5",
             (
                 (0, 535),
                 (90, 490),
@@ -90,7 +117,7 @@ def _draw_landscape(painter: QPainter) -> None:
             ),
         ),
         (
-            "#456f7b",
+            "#6d9696",
             (
                 (0, 616),
                 (100, 564),
@@ -121,15 +148,15 @@ def _draw_landscape(painter: QPainter) -> None:
 
     facets = (
         (
-            "#628791",
+            "#abb798",
             ((786, 430), (746, 509), (724, 546), (670, 590), (814, 534), (823, 476)),
         ),
         (
-            "#315b6a",
+            "#507b84",
             ((786, 430), (814, 534), (760, 634), (951, 584), (861, 488), (823, 476)),
         ),
         (
-            "#7c9b9d",
+            "#c2c6a4",
             (
                 (1099, 384),
                 (1034, 480),
@@ -140,7 +167,7 @@ def _draw_landscape(painter: QPainter) -> None:
             ),
         ),
         (
-            "#345c69",
+            "#57818a",
             (
                 (1099, 384),
                 (1109, 490),
@@ -153,7 +180,7 @@ def _draw_landscape(painter: QPainter) -> None:
             ),
         ),
         (
-            "#a9bfba",
+            "#f0f0d9",
             (
                 (1099, 384),
                 (1060, 442),
@@ -163,20 +190,20 @@ def _draw_landscape(painter: QPainter) -> None:
                 (1129, 425),
             ),
         ),
-        ("#94b0af", ((786, 430), (758, 466), (783, 457), (792, 465), (804, 454))),
-        ("#557c84", ((1313, 475), (1266, 564), (1328, 536), (1380, 580))),
+        ("#e0e6d3", ((786, 430), (758, 466), (783, 457), (792, 465), (804, 454))),
+        ("#a0b28f", ((1313, 475), (1266, 564), (1328, 536), (1380, 580))),
     )
     for color, points in facets:
         painter.setBrush(QColor(color))
         painter.drawPolygon(_polygon(points))
 
     mist = QLinearGradient(0, 460, 0, 735)
-    mist.setColorAt(0, QColor(147, 180, 171, 0))
-    mist.setColorAt(0.76, QColor(147, 180, 171, 90))
-    mist.setColorAt(1, QColor(147, 180, 171, 0))
+    mist.setColorAt(0, QColor(208, 225, 201, 0))
+    mist.setColorAt(0.76, QColor(208, 225, 201, 75))
+    mist.setColorAt(1, QColor(208, 225, 201, 0))
     painter.fillRect(QRectF(0, 460, 1440, 275), mist)
 
-    painter.setBrush(QColor("#315c64"))
+    painter.setBrush(QColor("#73977c"))
     painter.drawPolygon(
         _polygon(
             (
@@ -198,7 +225,7 @@ def _draw_landscape(painter: QPainter) -> None:
             )
         )
     )
-    painter.setBrush(QColor("#234b55"))
+    painter.setBrush(QColor("#4a7765"))
     painter.drawPolygon(
         _polygon(
             (
@@ -217,7 +244,7 @@ def _draw_landscape(painter: QPainter) -> None:
             )
         )
     )
-    painter.setBrush(QColor("#173d47"))
+    painter.setBrush(QColor("#315d50"))
     painter.drawPolygon(
         _polygon(
             (
