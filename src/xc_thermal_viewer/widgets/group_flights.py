@@ -91,7 +91,7 @@ class GroupFlights(QWidget):
         self._order.addItem("Most groups", "groups")
         self._cells, self._groups = QComboBox(), QComboBox()
         for combo in (self._cells, self._groups):
-            combo.setMinimumContentsLength(30)
+            combo.setMinimumContentsLength(20)
             combo.setSizeAdjustPolicy(
                 QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
             )

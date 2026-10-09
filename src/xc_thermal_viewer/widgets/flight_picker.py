@@ -170,7 +170,13 @@ class FlightPicker(QWidget):
             btn.clicked.connect(lambda _checked=False, d=disc: self._on_set_folder(d))
             self._btn_set_folder[disc.name] = btn
             folder_form.addRow(f"{disc.name.capitalize()} folder", btn)
-        folder_box = QGroupBox("Data folders (each archive's raw/catalog/derived root)")
+        # Short titles: a group box is never narrower than its title, and the picker
+        # must leave room for the tabs on small screens.
+        folder_box = QGroupBox("Archive folders")
+        folder_box.setToolTip(
+            "Each discipline's archive root (raw/, catalog/, derived/), "
+            "inside the data folder unless chosen here."
+        )
         folder_box.setLayout(folder_form)
 
         self._discipline_combo = QComboBox()
@@ -215,7 +221,8 @@ class FlightPicker(QWidget):
                 filter_form.addRow("Terrain", self._terrain_combo)
         filter_form.addRow(self._kept_only_check)
         filter_form.addRow(self._btn_search)
-        filter_box = QGroupBox("Filter the catalog (metadata: can be wrong)")
+        filter_box = QGroupBox("Filter the catalog")
+        filter_box.setToolTip("Catalog metadata comes from the FFVL and can be wrong.")
         filter_box.setLayout(filter_form)
         filter_scroll = QScrollArea()
         filter_scroll.setWidget(filter_box)
