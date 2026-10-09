@@ -210,6 +210,32 @@ def test_all_tabs_resize_and_keep_controls_inside_window(
                     assert window.rect().contains(bounds), (index, bounds)
 
 
+def test_data_folder_button_switches_and_remembers_the_folder(
+    window, tmp_path, monkeypatch
+):
+    from xc_thermal_viewer import app, datafolder
+    from xc_thermal_viewer.core.disciplines import DATA_FOLDER_ENV, DISCIPLINES
+
+    folder = tmp_path / "xc-thermal-viewer-data"
+    (folder / "paragliders").mkdir(parents=True)
+    # datafolder.use() writes the process environment; let monkeypatch restore it.
+    monkeypatch.setenv(DATA_FOLDER_ENV, str(tmp_path))
+    for discipline in DISCIPLINES.values():
+        monkeypatch.delenv(discipline.env, raising=False)
+    monkeypatch.setattr(app, "choose_data_folder", lambda parent, start="": folder)
+    saved = {}
+
+    class Settings:
+        def setValue(self, key, value):  # noqa: N802
+            saved[key] = value
+
+    monkeypatch.setattr("PyQt6.QtCore.QSettings", Settings)
+    window._picker._btn_data_folder.click()
+    assert saved == {datafolder.SETTINGS_KEY: str(folder.resolve())}
+    assert str(folder.resolve()) in window.windowTitle()
+    assert window._picker._data_folder_label.text().endswith(folder.name)
+
+
 def test_initial_window_fits_available_screen(window, qapp):
     window.show()
     qapp.processEvents()

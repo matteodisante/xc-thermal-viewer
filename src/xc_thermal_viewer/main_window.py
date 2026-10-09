@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, cast
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
 from matplotlib.figure import Figure
 from PyQt6.QtCore import QSize, Qt
-from PyQt6.QtGui import QKeySequence
 from PyQt6.QtWidgets import (
     QFileDialog,
     QMainWindow,
@@ -97,6 +96,7 @@ class MainWindow(QMainWindow):
         self._picker = FlightPicker()
         self._picker.flight_chosen.connect(self._on_flight_chosen)
         self._picker.folders_changed.connect(self._on_folders_changed)
+        self._picker.data_folder_requested.connect(self._on_choose_data_folder)
         self._picker.setMinimumWidth(260)
         self._picker.setMaximumWidth(420)
 
@@ -139,10 +139,6 @@ class MainWindow(QMainWindow):
         # disciplines is seconds of work the app should not pay before its window
         # even appears, for a tab the user may never open.
         self._tabs.currentChanged.connect(self._on_tab_changed)
-        file_menu = self.menuBar().addMenu("&File")
-        choose_folder = file_menu.addAction("Choose data folder…")
-        choose_folder.setShortcut(QKeySequence.StandardKey.Open)
-        choose_folder.triggered.connect(self._on_choose_data_folder)
         self._fullscreen_button = QPushButton("Map full screen")
         self._fullscreen_button.setCheckable(True)
         self._fullscreen_button.setToolTip(
@@ -177,7 +173,6 @@ class MainWindow(QMainWindow):
             )
             self._fullscreen_button.setChecked(True)
             self._fullscreen_button.setText("Exit map full screen")
-            self.menuBar().setVisible(False)
             self._focus_map()
             self.showFullScreen()
 
@@ -202,7 +197,6 @@ class MainWindow(QMainWindow):
             self._picker.setVisible(state[3])
             self._splitter.setSizes(state[2])
         self._fullscreen_state = None
-        self.menuBar().setVisible(True)
         self._fullscreen_button.setChecked(False)
         self._fullscreen_button.setText("Map full screen")
 

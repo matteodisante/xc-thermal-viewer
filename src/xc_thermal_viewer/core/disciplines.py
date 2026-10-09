@@ -1,14 +1,13 @@
 """The two disciplines, and where each one's archive sits inside the data folder.
 
 The viewer reads everything from one data folder chosen at startup. Inside it each
-discipline has its own archive root, laid out exactly as the thesis archive on disk::
+discipline has its own archive root::
 
     <data folder>/
         paragliders/     raw/igc/<season>/*.igc, catalog/catalog.csv, derived/...
         hang_gliders/    the same layout
 
-A per-discipline environment variable can point one discipline elsewhere, which is what
-the flight picker's folder buttons do.
+A per-discipline environment variable can point one discipline elsewhere.
 """
 
 from __future__ import annotations

@@ -10,7 +10,6 @@ below pass by accident.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
@@ -48,8 +47,8 @@ def _clear_caches():
 
 @pytest.fixture(autouse=True)
 def _clear_env(monkeypatch):
-    # _on_set_folder writes XC_THERMAL_VIEWER_*_ROOT into the real process environment;
-    # isolate that from whatever this shell happens to have set.
+    # Discipline.config() reads XC_THERMAL_VIEWER_*_ROOT ahead of the data folder;
+    # isolate the tests from whatever this shell happens to have set.
     monkeypatch.delenv("XC_THERMAL_VIEWER_PARA_ROOT", raising=False)
     monkeypatch.delenv("XC_THERMAL_VIEWER_HANG_ROOT", raising=False)
 
@@ -98,76 +97,52 @@ def test_discipline_choice_shown_when_neither_reachable(qapp, monkeypatch):
     assert picker._discipline_label.isVisible() is False
 
 
-def test_set_folder_points_the_env_var_and_updates_the_selector(
+def test_refresh_after_a_new_data_folder_updates_selector_and_label(
     qapp, tmp_path, monkeypatch
 ):
-    from unittest.mock import patch
+    from xc_thermal_viewer import datafolder
 
-    def env_only_config(self):
-        # A reduced stand-in for the real Discipline.config(), which also checks the
-        # env var first -- isolated from both the real data folder (which may well be
-        # mounted in this dev environment) and the checked-in YAML defaults, so the
-        # "before" state below is deterministic: nothing set, nothing reachable.
-        root = os.environ.get(self.env)
-        if root is None:
-            raise FileNotFoundError("not configured in this test")
-        from pathlib import Path
+    def folder_config(self):
+        # A reduced stand-in for the real Discipline.config(): only the data folder,
+        # so the "before" state is deterministic whatever this machine has mounted.
+        folder = datafolder.current()
+        if folder is None or not (folder / self.folder / "raw" / "igc").is_dir():
+            raise FileNotFoundError("not in the data folder")
+        return DataRoot(data_root=folder / self.folder)
 
-        return DataRoot(data_root=Path(root))
-
-    monkeypatch.setattr(disciplines_mod.Discipline, "config", env_only_config)
+    monkeypatch.delenv(disciplines_mod.DATA_FOLDER_ENV, raising=False)
+    monkeypatch.setattr(disciplines_mod.Discipline, "config", folder_config)
     picker = FlightPicker()
     picker.show()
+    received = []
+    picker.folders_changed.connect(lambda: received.append(1))
     assert picker._discipline_combo.isVisible() is True  # neither reachable yet
+    assert picker._data_folder_label.text() == "No data folder chosen."
 
-    para_root = _make_root(tmp_path, "para")
-    with patch(
-        "xc_thermal_viewer.widgets.flight_picker.QFileDialog.getExistingDirectory",
-        return_value=str(para_root),
-    ):
-        picker._on_set_folder(disciplines_mod.PARAGLIDERS)
+    folder = tmp_path / "xc-thermal-viewer-data"
+    _make_root(folder, "paragliders")
+    monkeypatch.setenv(disciplines_mod.DATA_FOLDER_ENV, str(folder))
+    picker.refresh_folders()
 
-    assert os.environ["XC_THERMAL_VIEWER_PARA_ROOT"] == str(para_root)
-    # env_only_config() now resolves paragliders (the env var is set) and still
-    # raises for hang gliders (its own env var never was) -- only one reachable.
     assert picker._discipline_combo.isVisible() is False
     assert picker._discipline_label.isVisible() is True
     assert picker.current_discipline().name == "paragliders"
-    assert str(para_root) in picker._btn_set_folder["paragliders"].text()
-
-
-def test_set_folder_emits_folders_changed(qapp, tmp_path, monkeypatch):
-    from unittest.mock import patch
-
-    monkeypatch.setattr(
-        disciplines_mod.Discipline,
-        "config",
-        _fake_config_for({}),  # nothing reachable up front; irrelevant to this test
-    )
-    picker = FlightPicker()
-    received = []
-    picker.folders_changed.connect(lambda: received.append(1))
-
-    para_root = _make_root(tmp_path, "para")
-    with patch(
-        "xc_thermal_viewer.widgets.flight_picker.QFileDialog.getExistingDirectory",
-        return_value=str(para_root),
-    ):
-        picker._on_set_folder(disciplines_mod.PARAGLIDERS)
-
-    # A sibling widget with its own cache (MapView) needs this to know a discipline's
-    # root just changed -- catalog_index's own cache being cleared isn't enough,
+    assert picker._data_folder_label.text() == "Data folder: xc-thermal-viewer-data"
+    assert picker._data_folder_label.toolTip() == str(folder)
+    # A sibling widget with its own cache (MapView) needs this to know the archive
+    # roots just changed -- catalog_index's own cache being cleared isn't enough,
     # since that cache is invisible to whatever a widget cached on its own.
     assert received == [1]
 
-    # Cancelling the folder dialog must not emit: nothing actually changed.
-    received.clear()
-    with patch(
-        "xc_thermal_viewer.widgets.flight_picker.QFileDialog.getExistingDirectory",
-        return_value="",
-    ):
-        picker._on_set_folder(disciplines_mod.PARAGLIDERS)
-    assert received == []
+
+def test_data_folder_button_asks_the_window(qapp, monkeypatch):
+    monkeypatch.setattr(FlightPicker, "_repopulate_filter_combos", lambda self: None)
+    picker = FlightPicker()
+    received = []
+    picker.data_folder_requested.connect(lambda: received.append(1))
+    picker._btn_data_folder.click()
+    assert received == [1]
+    assert picker._btn_data_folder.text() == "Choose data folder…"
 
 
 def test_all_catalog_matches_are_selectable_and_verdicts_are_explicit(

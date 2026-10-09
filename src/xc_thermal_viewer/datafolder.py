@@ -1,10 +1,10 @@
 """The data folder: the one local folder every tab reads its data from.
 
 The folder holds one archive root per discipline (see
-:mod:`xc_thermal_viewer.core.disciplines` for the layout). It is chosen once, at
-startup or from the File menu, and published through an environment variable so that
-every :meth:`~xc_thermal_viewer.core.disciplines.Discipline.config` lookup in this
-process resolves against it.
+:mod:`xc_thermal_viewer.core.disciplines` for the layout). It is chosen at startup or
+with the "Choose data folder" button, and published through an environment variable,
+so that every :meth:`~xc_thermal_viewer.core.disciplines.Discipline.config` lookup in
+this process resolves against it.
 
 No Qt import (see the package docstring): the app and the main window supply the
 dialog and the remembered setting.
@@ -49,8 +49,8 @@ def missing_parts(folder: str | Path) -> list[str]:
 def use(folder: str | Path) -> Path:
     """Read every discipline from ``folder`` from now on.
 
-    Also drops the per-discipline overrides the flight picker's folder buttons set, so
-    that the new folder applies to both disciplines.
+    Also drops any per-discipline override from the environment, so that the new
+    folder applies to both disciplines.
 
     Args:
         folder: The data folder.

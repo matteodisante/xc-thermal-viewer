@@ -86,7 +86,8 @@ them and start quickly. `uv cache clean` deletes the viewer and its libraries;
 2. On first launch a dialog asks for the data folder. Select the folder named
    **`xc-thermal-viewer-data`** itself, the one holding `paragliders/` and
    `hang_gliders/`, not one of its subfolders. The viewer remembers it, so later
-   launches open straight away. To switch folders, use **File → Choose data folder…**.
+   launches open straight away. To switch folders, click **Choose data folder…** at
+   the top of the left panel.
 
 You can also give the data folder on the command line; it is remembered the same way:
 

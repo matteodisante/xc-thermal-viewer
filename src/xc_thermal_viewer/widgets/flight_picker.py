@@ -15,11 +15,11 @@ from __future__ import annotations
 
 import calendar
 import itertools
-import os
 from pathlib import Path
 
 import pandas as pd
 from PyQt6.QtCore import QAbstractTableModel, QModelIndex, Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QKeySequence
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -38,7 +38,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from .. import catalog_index, data, geography
+from .. import catalog_index, data, datafolder, geography
 from ..core.disciplines import DISCIPLINES, Discipline
 from ..core.naming import parse_igc_filename
 
@@ -148,14 +148,17 @@ def _make_searchable_combo() -> QComboBox:
 class FlightPicker(QWidget):
     """Emits ``flight_chosen(path, discipline, flight_id)`` when a flight is picked.
 
-    Also emits ``folders_changed`` whenever a discipline's data root is repointed
-    (:meth:`_on_set_folder`) -- so a sibling widget with its own cache of the same
+    Also emits ``folders_changed`` whenever the data folder changes
+    (:meth:`refresh_folders`) -- so a sibling widget with its own cache of the same
     archive (:class:`~xc_thermal_viewer.widgets.map_view.MapView`) knows to drop it too,
-    rather than keep showing whichever root was current when it last loaded.
+    rather than keep showing whichever root was current when it last loaded. Its
+    "Choose data folder" button only emits ``data_folder_requested``: the window owns
+    the dialog and the remembered setting.
     """
 
     flight_chosen = pyqtSignal(object, object, str)
     folders_changed = pyqtSignal()
+    data_folder_requested = pyqtSignal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         """Build the discipline/browse controls, the catalog filter form and results."""
@@ -163,21 +166,16 @@ class FlightPicker(QWidget):
         self._rows = pd.DataFrame(columns=_RESULT_COLUMNS)
         self._forced_discipline: Discipline | None = None
 
-        self._btn_set_folder: dict[str, QPushButton] = {}
-        folder_form = QFormLayout()
-        for disc in DISCIPLINES.values():
-            btn = QPushButton("Not set — click to choose…")
-            btn.clicked.connect(lambda _checked=False, d=disc: self._on_set_folder(d))
-            self._btn_set_folder[disc.name] = btn
-            folder_form.addRow(f"{disc.name.capitalize()} folder", btn)
-        # Short titles: a group box is never narrower than its title, and the picker
-        # must leave room for the tabs on small screens.
-        folder_box = QGroupBox("Archive folders")
-        folder_box.setToolTip(
-            "Each discipline's archive root (raw/, catalog/, derived/), "
-            "inside the data folder unless chosen here."
+        self._btn_data_folder = QPushButton("Choose data folder…")
+        self._btn_data_folder.setShortcut(QKeySequence(QKeySequence.StandardKey.Open))
+        self._btn_data_folder.setToolTip(
+            "Select the xc-thermal-viewer-data folder, the one holding paragliders/ "
+            "and hang_gliders/. The viewer remembers it."
         )
-        folder_box.setLayout(folder_form)
+        self._btn_data_folder.clicked.connect(self.data_folder_requested)
+        # Wrapped, so a long folder name never widens the picker.
+        self._data_folder_label = QLabel()
+        self._data_folder_label.setWordWrap(True)
 
         self._discipline_combo = QComboBox()
         for disc in DISCIPLINES.values():
@@ -248,7 +246,9 @@ class FlightPicker(QWidget):
         self._status.setWordWrap(True)
 
         layout = QVBoxLayout(self)
-        layout.addWidget(folder_box)
+        layout.addWidget(self._btn_data_folder)
+        layout.addWidget(self._data_folder_label)
+        layout.addSpacing(8)
         layout.addWidget(QLabel("Discipline"))
         layout.addWidget(self._discipline_combo)
         layout.addWidget(self._discipline_label)
@@ -267,7 +267,7 @@ class FlightPicker(QWidget):
         )
 
         self._update_discipline_selector()
-        self._update_folder_buttons()
+        self._update_data_folder_label()
         # Deferred rather than called here directly: at construction time the window
         # is not shown yet, so a "Loading metadata..." status would paint on nothing
         # and the whole app would appear frozen for the ~2-3 s a first paraglider
@@ -305,45 +305,26 @@ class FlightPicker(QWidget):
             self._forced_discipline = reachable[0]
             self._discipline_combo.setVisible(False)
             name = reachable[0].name.capitalize()
-            self._discipline_label.setText(f"Discipline: {name} (only folder set)")
+            self._discipline_label.setText(f"Discipline: {name} (the only one)")
             self._discipline_label.setVisible(True)
         else:
             self._forced_discipline = None
             self._discipline_combo.setVisible(True)
             self._discipline_label.setVisible(False)
 
-    def _update_folder_buttons(self) -> None:
-        for disc in DISCIPLINES.values():
-            try:
-                root = disc.config().data_root
-                reachable = disc.config().igc_dir.is_dir()
-            except (FileNotFoundError, KeyError):
-                root, reachable = None, False
-            button = self._btn_set_folder[disc.name]
-            if reachable and root is not None:
-                button.setText(str(root))
-            else:
-                button.setText("Not set — click to choose…")
-
-    def _on_set_folder(self, discipline: Discipline) -> None:
-        dir_str = QFileDialog.getExistingDirectory(
-            self, f"Choose the {discipline.name} archive root"
-        )
-        if not dir_str:
-            return
-        # Discipline.config() reads this env var ahead of the data folder, so setting
-        # it here is enough to repoint every *fresh* lookup this process makes. What it
-        # does not do is invalidate what has already been cached -- catalog_index's
-        # module-level
-        # cache (cleared below) and, unlike that, anything a sibling widget cached on
-        # its own (folders_changed, emitted below, is how MapView hears about it).
-        os.environ[discipline.env] = dir_str
-        self.refresh_folders()
+    def _update_data_folder_label(self) -> None:
+        folder = datafolder.current()
+        if folder is None:
+            self._data_folder_label.setText("No data folder chosen.")
+            self._data_folder_label.setToolTip("")
+        else:
+            self._data_folder_label.setText(f"Data folder: {folder.name}")
+            self._data_folder_label.setToolTip(str(folder))
 
     def refresh_folders(self) -> None:
-        """Re-read both archive roots after either one, or the data folder, changed."""
+        """Re-read both archive roots after the data folder changed."""
         catalog_index.clear_cache()
-        self._update_folder_buttons()
+        self._update_data_folder_label()
         self._update_discipline_selector()
         self._repopulate_filter_combos()
         self.folders_changed.emit()

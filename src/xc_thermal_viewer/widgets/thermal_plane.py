@@ -545,7 +545,7 @@ class ThermalPlane(QWidget):
         self._set_busy(False)
         self._draw_map()
         self._draw_plane()
-        self._status.setText("Archive folders changed. Reload the prepared data.")
+        self._status.setText("Data folder changed. Reload the prepared data.")
 
     def shutdown(self):
         """Join the cooperative worker before Qt destroys its owning widget."""
