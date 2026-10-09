@@ -30,6 +30,28 @@ def window(qapp, monkeypatch):
     win.close()
 
 
+def _width_report(window):
+    """Which widgets set the window's minimum width, for a failure on another OS."""
+    from PyQt6.QtWidgets import QWidget
+
+    def widest(root):
+        rows = [
+            (child.minimumSizeHint().width(), type(child).__name__, child.objectName())
+            for child in root.findChildren(QWidget)
+            if child.isVisibleTo(root)
+        ]
+        return sorted(rows, reverse=True)[:3]
+
+    page = window._tabs.currentWidget()
+    return (
+        f"tab {window._tabs.tabText(window._tabs.currentIndex())!r}: "
+        f"window min {window.minimumSizeHint().width()}, "
+        f"picker min {window._picker.minimumSizeHint().width()} "
+        f"{widest(window._picker)}, "
+        f"page min {page.minimumSizeHint().width()} {widest(page)}"
+    )
+
+
 def _click_map_toggle(button, qapp):
     from PyQt6.QtCore import Qt
     from PyQt6.QtTest import QTest
@@ -172,7 +194,7 @@ def test_all_tabs_resize_and_keep_controls_inside_window(
     for index in range(window._tabs.count()):
         window._tabs.setCurrentIndex(index)
         qapp.processEvents()
-        assert window.size() == QSize(width, height)
+        assert window.size() == QSize(width, height), _width_report(window)
         tab = window._tabs.currentWidget()
         canvas = window._canvas if index == 0 else getattr(tab, "_canvas", None)
         if canvas is not None:
