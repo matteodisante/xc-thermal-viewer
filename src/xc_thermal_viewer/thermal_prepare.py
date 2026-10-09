@@ -5,7 +5,6 @@ from __future__ import annotations
 import io
 import multiprocessing
 import os
-import sqlite3
 from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
 
 import numpy as np
@@ -16,6 +15,7 @@ from . import data
 from .core.disciplines import DISCIPLINES
 from .core.preproc.enu import LocalFrame
 from .geodesy import enu_to_geodetic
+from .sqlite import connect
 from .thermal_cache import EDGE_COLUMNS, ClimbCache
 from .thermal_geometry import climb_edges, project
 
@@ -108,12 +108,10 @@ def prepare_climbs(
     completed = 0
     pending = set()
     with (
-        sqlite3.connect(index.path) as census,
+        connect(index.path) as census,
         # A read-only audit can briefly hold a shared lock. Wait for it instead
         # of aborting a long preparation after SQLite's default five seconds.
-        sqlite3.connect(
-            index.path.with_name("thermal-climbs.sqlite3"), timeout=120
-        ) as saved,
+        connect(index.path.with_name("thermal-climbs.sqlite3"), timeout=120) as saved,
         ProcessPoolExecutor(
             max_workers=workers, mp_context=multiprocessing.get_context("spawn")
         ) as pool,

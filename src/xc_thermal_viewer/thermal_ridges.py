@@ -140,7 +140,7 @@ def derive_ridges(z, raster_bounds, cell_bounds, parameters=None):
 
 @lru_cache(maxsize=24)
 def _read_ridges(path, modified_ns):
-    return json.loads(path.read_text())
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def load_ridges(cell, folder=None):

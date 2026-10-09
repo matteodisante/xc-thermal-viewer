@@ -90,7 +90,7 @@ def load_basemap() -> dict | None:
     """
     if not _BASEMAP_PATH.is_file():
         return None
-    return json.loads(_BASEMAP_PATH.read_text())["panels"]
+    return json.loads(_BASEMAP_PATH.read_text(encoding="utf-8"))["panels"]
 
 
 def draw_land(ax: Axes, rings: list[list[list[float]]], extent: Extent) -> None:

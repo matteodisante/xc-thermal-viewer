@@ -2,7 +2,6 @@
 
 import io
 import json
-import sqlite3
 import time
 from dataclasses import asdict
 from types import SimpleNamespace
@@ -10,6 +9,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from xc_thermal_viewer.sqlite import connect
 from xc_thermal_viewer.thermal_geometry import ThermalCell
 from xc_thermal_viewer.thermal_store import ThermalStore, load_store
 
@@ -26,7 +26,7 @@ def store(tmp_path):
         ),
     )
     path = tmp_path / "thermal-planes.sqlite3"
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         db.executescript("""
         CREATE TABLE metadata(key TEXT PRIMARY KEY,value TEXT);
         CREATE TABLE terrain(ix INTEGER,iy INTEGER,metadata TEXT,PRIMARY KEY(ix,iy));
@@ -118,7 +118,7 @@ def test_climb_ranking_survives_loading_without_visitor_resort(store):
     first = store.cells()[0]
     second = replace(first, ix=first.ix + 1, flights=1)
     store.path.chmod(0o644)
-    with sqlite3.connect(store.path) as db:
+    with connect(store.path) as db:
         db.execute(
             "UPDATE metadata SET value=? WHERE key='ranking_reference'",
             (CLIMB_RANKING,),
@@ -152,7 +152,7 @@ def test_reuse_points_requires_unchanged_geometry_and_method(store, change):
     from xc_thermal_viewer.thermal_daily import prepare_daily, reuse_prepared_points
 
     store.path.chmod(0o644)
-    with sqlite3.connect(store.path) as db:
+    with connect(store.path) as db:
         db.executemany(
             "INSERT INTO metadata VALUES (?,?)",
             [
@@ -163,7 +163,7 @@ def test_reuse_points_requires_unchanged_geometry_and_method(store, change):
     prepare_daily(store.path, progress=lambda _: None)
     target = store.path.with_name("changed-selection.sqlite3")
     shutil.copyfile(store.path, target)
-    with sqlite3.connect(target) as db:
+    with connect(target) as db:
         db.execute("DELETE FROM plane_points")
         db.execute(
             "DELETE FROM metadata WHERE key IN "
@@ -181,7 +181,7 @@ def test_reuse_points_requires_unchanged_geometry_and_method(store, change):
             )
             db.execute("UPDATE metadata SET value='different' WHERE key=?", (key,))
     reuse_prepared_points(target, store.path)
-    with sqlite3.connect(target) as db:
+    with connect(target) as db:
         assert db.execute("SELECT count(*) FROM plane_points").fetchone()[0] == (
             1 if change is None else 0
         )
@@ -247,7 +247,7 @@ def test_saved_relief_preserves_extent_and_never_uses_network(store, monkeypatch
     Image.fromarray(pixels).save(output, format="PNG")
     cell = store.cells()[0]
     info = {"extent": cell.bounds, "epsg": 2154}
-    with sqlite3.connect(store.path) as db:
+    with connect(store.path) as db:
         db.execute("CREATE TABLE relief(key TEXT,metadata TEXT,png BLOB)")
         db.execute(
             "INSERT INTO relief VALUES (?,?,?)",
@@ -306,7 +306,7 @@ def test_saved_aerial_dates_and_pixels(store, monkeypatch):
     image = io.BytesIO()
     Image.new("RGB", (4, 4), (20, 40, 60)).save(image, format="PNG")
     dates = ["2022-06-12", "2023-08-01"]
-    with sqlite3.connect(store.path) as db:
+    with connect(store.path) as db:
         db.execute(
             "CREATE TABLE backgrounds(kind TEXT,key TEXT,metadata TEXT,image BLOB)"
         )
@@ -370,7 +370,7 @@ def test_terrain_upgrade_rebuilds_points_and_resumes_without_changing_source(
 @pytest.mark.parametrize("legacy", [None, "ign-dem-cell-mean-v1"])
 def test_other_ground_reference_cannot_be_displayed_as_lowest_terrain(store, legacy):
     store.path.chmod(0o644)
-    with sqlite3.connect(store.path) as db:
+    with connect(store.path) as db:
         db.execute(
             "UPDATE metadata SET value=? WHERE key='ground_reference'", (legacy,)
         )
@@ -408,7 +408,7 @@ def _neighbour_census(store, tmp_path, monkeypatch, products):
             else visitors.iloc[:0].astype(object)
         ),
     )
-    with sqlite3.connect(tmp_path / "thermal-climbs.sqlite3") as db:
+    with connect(tmp_path / "thermal-climbs.sqlite3") as db:
         db.execute(
             "CREATE TABLE IF NOT EXISTS climbs(cache_key TEXT,discipline TEXT,"
             "flight_id TEXT,ix INTEGER,iy INTEGER,status TEXT,edges BLOB)"
@@ -555,7 +555,7 @@ def test_legacy_launch_categories_are_corrected_without_touching_snapshot(store)
         ),
     ]
     highest = {(196, 1312): 2100.0, (191, 1307): 1400.0, (185, 1294): 1944.2}
-    with sqlite3.connect(store.path) as db:
+    with connect(store.path) as db:
         db.execute("DELETE FROM metadata WHERE key='ranking_reference'")
         db.execute("DELETE FROM cells")
         db.executemany(
@@ -591,7 +591,7 @@ def test_viewer_refuses_legacy_subset_instead_of_calling_it_the_terrain_top_thre
     store, monkeypatch
 ):
     store.path.chmod(0o644)
-    with sqlite3.connect(store.path) as db:
+    with connect(store.path) as db:
         db.execute("DELETE FROM metadata WHERE key='ranking_reference'")
     monkeypatch.setenv("XC_THERMAL_VIEWER_CACHE_DIR", str(store.path.parent))
     with pytest.raises(ValueError, match="three most populated cells"):

@@ -13,13 +13,13 @@ from __future__ import annotations
 
 import io
 import json
-import sqlite3
 import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import numpy as np
 
+from .sqlite import connect
 from .thermal_daily import lattice_points
 from .thermal_geometry import ThermalCell
 from .thermal_store import ThermalStore, neighbour_frames
@@ -83,8 +83,8 @@ def prepare_neighbour_points(path, *, workers=4, progress=print):
     prepare_climbs(census, workers=workers, progress=progress, cells=targets)
     keys = {source: segmentation_signature(census, source) for source in SOURCES}
     with (
-        sqlite3.connect(path, timeout=120) as db,
-        sqlite3.connect(
+        connect(path, timeout=120) as db,
+        connect(
             census.path.with_name("thermal-climbs.sqlite3").as_uri() + "?mode=ro",
             uri=True,
         ) as cache,
@@ -228,7 +228,7 @@ def prepare_neighbour_imagery(path, *, size=4000, progress=print):
         return kind, f"{cell.ix}/{cell.iy}", json.dumps(info), payload
 
     with (
-        sqlite3.connect(path, timeout=120) as db,
+        connect(path, timeout=120) as db,
         ThreadPoolExecutor(max_workers=3) as pool,
     ):
         db.execute("""CREATE TABLE IF NOT EXISTS backgrounds(

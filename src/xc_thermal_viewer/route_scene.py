@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import io
 import json
-import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from urllib.parse import urlencode
@@ -22,6 +21,7 @@ from .geodesy import enu_to_geodetic
 from .route_density import DensityAtlas, load_density
 from .route_index import FIX_COLUMNS, ROUTE_CELL_M, matching_flights, select_flights
 from .route_times import DepartureWindow, filter_departures, with_flight_times
+from .sqlite import connect
 from .thermal_geometry import continuous_edges, project
 from .thermal_index import _check_cancel
 from .thermal_ridges import DATASET_URL, LAYER, SERVICE
@@ -306,7 +306,7 @@ def read_tracks(index, selected, *, progress=lambda _: None, cancel=None):
     """Read selected cleaned fixes once, retaining boundaries and measuring paths."""
     index.verify()
     pieces = {(r.discipline, r.flight_id): [] for r in selected.itertuples()}
-    with sqlite3.connect(index.path) as db:
+    with connect(index.path) as db:
         for disc in index.disciplines:
             ids = selected.loc[selected.discipline == disc.name, "flight_id"].tolist()
             if not ids:

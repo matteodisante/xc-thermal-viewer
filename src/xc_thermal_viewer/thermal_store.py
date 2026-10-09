@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 
 from .core.disciplines import DISCIPLINES
+from .sqlite import connect
 from .thermal_geometry import ThermalCell
 from .thermal_ground import (
     CLIMB_RANKING,
@@ -417,7 +418,7 @@ def export_store(index, *, relief=None, destination=None):
     temporary = target.with_suffix(".building.sqlite3")
     temporary.unlink(missing_ok=True)
     with (
-        sqlite3.connect(temporary) as out,
+        connect(temporary) as out,
         _connect(index.path.with_name("thermal-climbs.sqlite3")) as products,
     ):
         out.executescript("""

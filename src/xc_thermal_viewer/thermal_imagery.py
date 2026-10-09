@@ -3,7 +3,6 @@
 import hashlib
 import io
 import json
-import sqlite3
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
@@ -16,6 +15,7 @@ from urllib.request import urlopen
 from PIL import Image
 
 from .geography import FRANCE_EXTENT
+from .sqlite import connect
 from .thermal_store import ThermalStore, neighbour_frames
 
 SERVICE = "https://data.geopf.fr/wms-r/wms"
@@ -35,7 +35,7 @@ def reuse_backgrounds(path, previous, *, with_neighbours=False):
     keys = {"france", *(f"{c.ix}/{c.iy}" for c in cells)}
     if with_neighbours:
         keys.update(f"{f.ix}/{f.iy}" for c in cells for f in neighbour_frames(c))
-    with sqlite3.connect(path, uri=True) as db:
+    with connect(path, uri=True) as db:
         db.execute(
             "CREATE TABLE IF NOT EXISTS backgrounds(kind TEXT,key TEXT,"
             "metadata TEXT,image BLOB,PRIMARY KEY(kind,key))"
@@ -92,7 +92,7 @@ def fetch_image(folder, bounds, crs, size, kind, *, downloader=None):
     target = folder / f"{digest}.{'png' if kind == 'topography' else 'jpg'}"
     meta = folder / f"{digest}.json"
     if target.exists() and meta.exists():
-        info = json.loads(meta.read_text())
+        info = json.loads(meta.read_text(encoding="utf-8"))
         info.setdefault("request_url", SERVICE + "?" + query)
         info.setdefault("cache_key", digest)
         return info, target.read_bytes()
@@ -162,7 +162,7 @@ def fetch_image(folder, bounds, crs, size, kind, *, downloader=None):
             assembly="Georeferenced tiles joined without resampling",
         )
     target.write_bytes(payload)
-    meta.write_text(json.dumps(info))
+    meta.write_text(json.dumps(info), encoding="utf-8")
     return info, payload
 
 
@@ -217,7 +217,7 @@ def prepare_imagery(path, progress=print):
         return kind, key, json.dumps(info), payload
 
     with (
-        sqlite3.connect(path, timeout=120) as db,
+        connect(path, timeout=120) as db,
         ThreadPoolExecutor(max_workers=3) as pool,
     ):
         db.execute("""CREATE TABLE IF NOT EXISTS backgrounds(
@@ -248,7 +248,7 @@ def prepare_region_backgrounds(path, progress=print):
     from .thermal_regions import REGIONS, extent
     from .thermal_relief import fetch_relief
 
-    with sqlite3.connect(path, timeout=120) as db:
+    with connect(path, timeout=120) as db:
         db.execute("""CREATE TABLE IF NOT EXISTS backgrounds(
             kind TEXT,key TEXT,metadata TEXT,image BLOB,PRIMARY KEY(kind,key))""")
         db.execute("""CREATE TABLE IF NOT EXISTS relief(

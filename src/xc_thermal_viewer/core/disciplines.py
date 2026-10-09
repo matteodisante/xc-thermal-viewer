@@ -90,10 +90,10 @@ class Discipline:
         """
         override = os.environ.get(self.env)
         if override:
-            return DataRoot(Path(override).expanduser())
+            return DataRoot(Path(override).expanduser().resolve())
         folder = os.environ.get(DATA_FOLDER_ENV)
         if folder:
-            return DataRoot(Path(folder).expanduser() / self.folder)
+            return DataRoot(Path(folder).expanduser().resolve() / self.folder)
         raise FileNotFoundError("No data folder chosen")
 
     def derived_dir(self, require: str = "fixes.parquet") -> Path | None:

@@ -6,7 +6,6 @@ import hashlib
 import json
 import multiprocessing
 import os
-import sqlite3
 from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
 from dataclasses import asdict
 from itertools import pairwise
@@ -21,6 +20,7 @@ from .core.vilpellet import load_vilpellet_config
 from .fingerprint import file_identity
 from .geodesy import enu_to_geodetic
 from .geography import FRANCE_EXTENT
+from .sqlite import connect
 from .thermal_geometry import CELL_M, continuous_edges, project
 
 ACTIVITY_VERSION = "vilpellet-continuous-climb-runs-v1"
@@ -122,7 +122,9 @@ def _validated_products(index):
             folder / "phase_segments.parquet",
             folder / "phase_coverage.parquet",
         )
-        record = json.loads((folder / "model/parameters.json").read_text())
+        record = json.loads(
+            (folder / "model/parameters.json").read_text(encoding="utf-8")
+        )
         expected = {
             "discipline": name,
             "alpha_straight_rad": config.alpha_for(name),
@@ -161,7 +163,7 @@ def _validated_products(index):
             != pq.ParquetFile(native).metadata.num_rows
         ):
             raise ValueError(f"Incomplete Vilpellet coverage for {name}")
-        with sqlite3.connect(index.path) as db:
+        with connect(index.path) as db:
             flights = {
                 r[0]
                 for r in db.execute(
@@ -192,8 +194,8 @@ def prepare_activity(index, *, workers=4, progress=print):
     for name in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
         os.environ[name] = "1"
     with (
-        sqlite3.connect(path, timeout=120) as db,
-        sqlite3.connect(index.path) as census,
+        connect(path, timeout=120) as db,
+        connect(index.path) as census,
     ):
         db.executescript("""
             CREATE TABLE IF NOT EXISTS metadata(key TEXT PRIMARY KEY,value TEXT);

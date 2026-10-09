@@ -157,7 +157,9 @@ def main():
             },
         }
         path = args.output / f"ign-ridges-{cell.ix}-{cell.iy}.geojson"
-        path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
+        path.write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
         load_ridges(cell, args.output)
         print(
             f"{cell.ix}/{cell.iy}: {len(lines)} crest pieces; {len(raw)} terrain bytes",

@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -15,6 +14,7 @@ import pandas as pd
 from .core.config import load_preproc_config
 from .core.igc import _altitude, _lat, _lon, _valid_time_of_day
 from .geography import TERRAIN_ORDER
+from .sqlite import connect
 from .thermal_geometry import ThermalCell
 from .thermal_ground import (
     CLIMB_RANKING,
@@ -111,7 +111,7 @@ def audit_launches(index, progress=print):
         ).encode()
     ).hexdigest()
     path = index.path.with_name("thermal-launch-quality.sqlite3")
-    with sqlite3.connect(index.path) as census, sqlite3.connect(path) as db:
+    with connect(index.path) as census, connect(path) as db:
         db.execute(
             "CREATE TABLE IF NOT EXISTS origins (policy TEXT,discipline TEXT,"
             "flight_id TEXT,status TEXT, PRIMARY KEY(policy,discipline,flight_id))"
@@ -208,7 +208,7 @@ def rank_cells(
     """
     if per_category < 1:
         raise ValueError("per_category must be at least 1")
-    with sqlite3.connect(index.path) as db:
+    with connect(index.path) as db:
         starts = pd.read_sql_query(
             "SELECT discipline,flight_id,launch_x ix,launch_y iy,launch_alt "
             "FROM flights WHERE launch_alt IS NOT NULL",
@@ -222,7 +222,7 @@ def rank_cells(
     summary = {"policy": "raw_first_fix", "excluded": 0}
     if quality is not None:
         path, policy = quality
-        with sqlite3.connect(path) as db:
+        with connect(path) as db:
             statuses = pd.read_sql_query(
                 "SELECT discipline,flight_id,status FROM origins WHERE policy=?",
                 db,
@@ -246,7 +246,7 @@ def rank_cells(
     cells = visits.merge(launches, on=["ix", "iy"], how="left")
     metric = "flights"
     if activity is not None:
-        with sqlite3.connect(Path(activity).as_uri() + "?mode=ro", uri=True) as db:
+        with connect(Path(activity).as_uri() + "?mode=ro", uri=True) as db:
             metadata = dict(db.execute("SELECT key,value FROM metadata"))
             if metadata.get("ready") != "1":
                 raise ValueError("National Vilpellet climb census is incomplete")

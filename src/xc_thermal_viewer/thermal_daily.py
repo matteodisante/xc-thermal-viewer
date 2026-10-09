@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import io
 import json
-import sqlite3
 from calendar import monthrange
 from collections import Counter
 from datetime import date, datetime, time, timedelta
@@ -13,6 +12,7 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 
+from .sqlite import connect
 from .thermal_geometry import ThermalCell
 
 PARIS = ZoneInfo("Europe/Paris")
@@ -57,7 +57,7 @@ def reuse_prepared_points(path, previous):
     ]
     if not shared:
         return
-    with sqlite3.connect(path, uri=True) as db:
+    with connect(path, uri=True) as db:
         db.execute(
             "ATTACH DATABASE ? AS previous",
             (Path(previous).resolve().as_uri() + "?mode=ro",),
@@ -237,7 +237,7 @@ def prepare_daily(path, progress=print):
     Each flight is committed in batches. Readers use the old format until the
     final capability flag is published, so an interrupted build stays usable.
     """
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         db.executescript("""
             CREATE TABLE IF NOT EXISTS plane_points(
                 source TEXT, ix INTEGER, iy INTEGER, discipline TEXT,
@@ -346,8 +346,8 @@ def prepare_reference_audit(path):
     if not census.exists():
         return
     with (
-        sqlite3.connect(census.as_uri() + "?mode=ro", uri=True) as source,
-        sqlite3.connect(path) as db,
+        connect(census.as_uri() + "?mode=ro", uri=True) as source,
+        connect(path) as db,
     ):
         db.execute("""CREATE TABLE IF NOT EXISTS ground_audit(
             ix INTEGER,iy INTEGER,raw_count INTEGER,raw_median REAL,

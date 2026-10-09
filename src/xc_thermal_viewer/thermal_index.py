@@ -33,6 +33,7 @@ from .fingerprint import file_identity
 from .geodesy import enu_to_geodetic
 from .geography import FRANCE_EXTENT, TERRAIN_ORDER, classify_terrain
 from .locking import exclusive
+from .sqlite import connect
 from .thermal_geometry import CELL_M, ThermalCell, cell_visits, climb_edges, project
 
 INDEX_VERSION = 1
@@ -69,7 +70,7 @@ def load_saved_index(
         return None
     signature = archive_signature(disciplines)
     try:
-        with sqlite3.connect(path) as db:
+        with connect(path) as db:
             saved = db.execute("SELECT signature FROM metadata").fetchone()
         if saved == (signature,):
             return ThermalIndex(path, tuple(d.name for d in disciplines), signature)
@@ -124,7 +125,7 @@ class ThermalIndex:
         reference and cannot be candidates. All crossing flights still contribute
         to the counts, including flights launched outside the candidate cell.
         """
-        with sqlite3.connect(self.path) as db:
+        with connect(self.path) as db:
             if db.execute(
                 "SELECT 1 FROM sqlite_master WHERE name='selected_cells'"
             ).fetchone():
@@ -175,13 +176,13 @@ class ThermalIndex:
 
     def save_cells(self) -> None:
         """Persist the four reductions so startup only reads four small records."""
-        with sqlite3.connect(self.path) as db:
+        with connect(self.path) as db:
             if db.execute(
                 "SELECT 1 FROM sqlite_master WHERE name='selected_cells'"
             ).fetchone():
                 return
         cells = self.cells()
-        with sqlite3.connect(self.path) as db:
+        with connect(self.path) as db:
             db.execute(
                 "CREATE TABLE IF NOT EXISTS selected_cells "
                 "(position INTEGER PRIMARY KEY, payload TEXT)"
@@ -194,7 +195,7 @@ class ThermalIndex:
 
     def flights(self, cell: ThermalCell) -> pd.DataFrame:
         """All-time visitors, including those whose raw UTC cannot be recovered."""
-        with sqlite3.connect(self.path) as db:
+        with connect(self.path) as db:
             return pd.read_sql_query(
                 "SELECT f.*, v.t_min, v.t_max FROM visits v JOIN flights f "
                 "ON f.discipline=v.discipline AND f.flight_id=v.flight_id "
@@ -409,7 +410,7 @@ def _build_index(
     signature = archive_signature(disciplines)
     if path.is_file() and not force:
         try:
-            with sqlite3.connect(path) as db:
+            with connect(path) as db:
                 cached = db.execute("SELECT signature FROM metadata").fetchone()
             if cached == (signature,):
                 index = ThermalIndex(
@@ -423,7 +424,7 @@ def _build_index(
     temporary = path.with_suffix(".building.sqlite3")
     # A cancelled census is a reusable checkpoint, never a selectable result.
     if temporary.is_file():
-        with sqlite3.connect(temporary) as db:
+        with connect(temporary) as db:
             try:
                 pending_signature = db.execute(
                     "SELECT signature FROM build_info"
@@ -433,7 +434,7 @@ def _build_index(
         if pending_signature != (signature,) or force:
             temporary.unlink()
     fresh = not temporary.is_file()
-    with sqlite3.connect(temporary) as db:
+    with connect(temporary) as db:
         if fresh:
             _create_tables(db)
             db.execute("CREATE TABLE build_info (signature TEXT)")
@@ -517,7 +518,7 @@ def load_plane_data(
         return archives[discipline].read_row_group(group).to_pandas()
 
     loader = data.load_vilpellet_phases
-    with sqlite3.connect(index.path) as db, ClimbCache(index, source) as cache:
+    with connect(index.path) as db, ClimbCache(index, source) as cache:
         for i, row in enumerate(selected.itertuples(index=False)):
             _check_cancel(cancel)
             saved = cache.get(

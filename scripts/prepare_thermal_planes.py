@@ -17,6 +17,7 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 from xc_thermal_viewer.locking import BusyError, exclusive  # noqa: E402
+from xc_thermal_viewer.sqlite import connect  # noqa: E402
 from xc_thermal_viewer.thermal_index import build_index  # noqa: E402
 
 
@@ -29,7 +30,7 @@ def _matches_prepared_selection(path, index):
         return False
     try:
         store = ThermalStore(path)
-        with sqlite3.connect(path) as db:
+        with connect(path) as db:
             metadata = dict(db.execute("SELECT key,value FROM metadata"))
         return (
             store.has_terrain_ranking
@@ -178,7 +179,7 @@ def main() -> int:
                     )
                     prepare_neighbour_imagery(staged, progress=progress)
                     prepare_neighbour_terrain(staged, progress=progress)
-                with sqlite3.connect(staged) as db:
+                with connect(staged) as db:
                     if db.execute("PRAGMA quick_check").fetchone() != ("ok",):
                         raise RuntimeError(
                             "Prepared file failed SQLite integrity check"

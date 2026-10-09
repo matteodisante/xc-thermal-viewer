@@ -48,8 +48,12 @@ target-version = "py312"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "N", "B", "UP", "C4", "SIM", "PTH", "RUF", "D"]
+select = ["E", "F", "W", "I", "N", "B", "UP", "C4", "SIM", "PTH", "RUF", "D", "PLW1514"]
 ignore = ["D203", "D213"]
+# Only PLW1514 (text I/O without an explicit encoding) is a preview rule: Windows
+# would otherwise decode the UTF-8 assets with its locale code page.
+preview = true
+explicit-preview-rules = true
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

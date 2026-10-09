@@ -12,7 +12,6 @@ from the subset of flights or intersections in the starting cell.
 from __future__ import annotations
 
 import io
-import sqlite3
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import replace
@@ -22,6 +21,7 @@ import numpy as np
 import pandas as pd
 from PIL import Image
 
+from .sqlite import connect
 from .thermal_daily import PARIS
 from .thermal_geometry import ThermalCell
 from .thermal_ground import cell_ground, fetch_terrain_reference
@@ -77,7 +77,7 @@ class ThermalExplorer:
         else:
             index = self._index()
             progress(f"Reading all flights crossing cell {ix}/{iy}")
-            with sqlite3.connect(index.path) as db:
+            with connect(index.path) as db:
                 flights, maximum = db.execute(
                     "SELECT COUNT(*),MAX(max_alt) FROM visits WHERE ix=? AND iy=?",
                     (ix, iy),
@@ -320,7 +320,7 @@ def _flight_fixes(index, rows, cancel):
 
     from .core.disciplines import DISCIPLINES
 
-    with sqlite3.connect(index.path) as db:
+    with connect(index.path) as db:
         for discipline in sorted({r["discipline"] for r in rows}):
             wanted = {r["flight_id"]: r for r in rows if r["discipline"] == discipline}
             groups, last = {}, {}

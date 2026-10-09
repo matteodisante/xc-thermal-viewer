@@ -1,6 +1,5 @@
 """Crossing census and UTC reconstruction must use different flight populations."""
 
-import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -12,6 +11,7 @@ import pytest
 from xc_thermal_viewer import thermal_index
 from xc_thermal_viewer.core.disciplines import PARAGLIDERS
 from xc_thermal_viewer.core.igc import first_fix
+from xc_thermal_viewer.sqlite import connect
 from xc_thermal_viewer.thermal_index import (
     ThermalIndex,
     _create_tables,
@@ -22,7 +22,7 @@ from xc_thermal_viewer.thermal_index import (
 @pytest.fixture
 def index(tmp_path):
     path = tmp_path / "cells.sqlite3"
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         _create_tables(db)
         # Only launches a and b set the ground (median 200). Visitor c starts in a
         # different cell at 2000 m. Repeated visits by c cannot inflate the census.
@@ -222,7 +222,7 @@ def test_index_streams_row_groups_once_and_reuses_completed_cache(
     monkeypatch.setattr(thermal_index, "_index_origins", origins)
     path = tmp_path / "index.sqlite3"
     index = thermal_index.build_index([PARAGLIDERS], path=path)
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         assert db.execute("SELECT COUNT(*) FROM visits").fetchone()[0] == 6
         assert db.execute("SELECT COUNT(*) FROM flight_groups").fetchone()[0] == 4
         assert db.execute("SELECT COUNT(*) FROM metadata").fetchone()[0] == 1
@@ -239,7 +239,7 @@ def test_index_streams_row_groups_once_and_reuses_completed_cache(
     # A stopped first census retains origins and committed groups in the data folder.
     resume_path = tmp_path / "resumed.sqlite3"
     checkpoint = resume_path.with_suffix(".building.sqlite3")
-    with sqlite3.connect(path) as source, sqlite3.connect(checkpoint) as dest:
+    with connect(path) as source, connect(checkpoint) as dest:
         source.backup(dest)
         dest.execute("DELETE FROM metadata")
         dest.execute("DROP TABLE selected_cells")
@@ -251,12 +251,12 @@ def test_index_streams_row_groups_once_and_reuses_completed_cache(
     resumed = thermal_index.build_index([PARAGLIDERS], path=resume_path)
     assert resumed.cells() == index.cells()
     assert not checkpoint.exists()
-    with sqlite3.connect(resume_path) as db:
+    with connect(resume_path) as db:
         assert db.execute("SELECT COUNT(*) FROM visits").fetchone()[0] == 6
 
 
 def test_unknown_clocks_remain_in_census_but_not_calendar_selection(index, monkeypatch):
-    with sqlite3.connect(index.path) as db:
+    with connect(index.path) as db:
         db.execute("UPDATE flights SET start_utc=NULL")
     result = load_plane_data(index, index.cells()[0], 0, 10000, "vilpellet")
     assert index.cells()[0].flights == 3
@@ -376,7 +376,7 @@ def test_quality_changes_launch_audit_without_changing_terrain_or_crossing_fligh
     )
     assert rank_cells(index).cells()[0].terrain == "Plains"
     quality = tmp_path / "quality.sqlite3"
-    with sqlite3.connect(quality) as db:
+    with connect(quality) as db:
         db.execute(
             "CREATE TABLE origins(policy TEXT,discipline TEXT,"
             "flight_id TEXT,status TEXT)"
@@ -410,7 +410,7 @@ def test_top_three_use_all_crossers_and_break_ties_by_grid_position(index, monke
         "xc_thermal_viewer.thermal_ranking._cell_terrain",
         lambda *a: {"minimum_m": 200, "maximum_m": 250},
     )
-    with sqlite3.connect(index.path) as db:
+    with connect(index.path) as db:
         for ix in range(2, 5):
             db.execute(
                 "INSERT INTO flights VALUES (?,?,?,?,?,?,?,?,?,?,?)",

@@ -74,3 +74,12 @@ def test_a_stale_remembered_folder_asks_again(tmp_path, monkeypatch):
     stale = FakeSettings({datafolder.SETTINGS_KEY: str(tmp_path / "moved")})
     assert app._initial_data_folder(None, stale) == (None, True)
     assert asked == [str(tmp_path / "moved")]
+
+
+def test_a_relative_folder_becomes_absolute(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data/paragliders").mkdir(parents=True)
+    monkeypatch.setenv(DATA_FOLDER_ENV, "data")
+    root = PARAGLIDERS.config().data_root
+    assert root.is_absolute()
+    assert root == (tmp_path / "data/paragliders").resolve()

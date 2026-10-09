@@ -25,6 +25,7 @@ from .fingerprint import file_identity
 from .geodesy import enu_to_geodetic
 from .geography import FRANCE_EXTENT
 from .locking import exclusive
+from .sqlite import connect
 from .thermal_geometry import CELL_M as INDEX_CELL_M
 from .thermal_geometry import project
 from .thermal_index import _check_cancel, cache_path
@@ -75,7 +76,7 @@ class RouteIndex:
 
     def flights(self):
         """Read endpoints on 10 km cells by merging aligned 2 x 2 index squares."""
-        with sqlite3.connect(self.path) as db:
+        with connect(self.path) as db:
             flights = pd.read_sql_query("SELECT * FROM flights", db)
         for column in PAIR_COLUMNS:
             flights[column] = flights[column] // int(ROUTE_CELL_M / INDEX_CELL_M)
@@ -97,7 +98,7 @@ def load_saved_index(disciplines=None, *, path=None):
         return None
     signature = archive_signature(disciplines)
     try:
-        with sqlite3.connect(path) as db:
+        with connect(path) as db:
             saved = dict(db.execute("SELECT key,value FROM metadata"))
         if saved.get("signature") == signature and saved.get("complete") == "yes":
             return RouteIndex(path, tuple(disciplines), signature)
@@ -206,7 +207,7 @@ def build_index(disciplines=None, *, path=None, progress=lambda _: None, cancel=
             return saved
         signature = archive_signature(disciplines)
         temporary = path.with_suffix(".building.sqlite3")
-        with sqlite3.connect(temporary) as db:
+        with connect(temporary) as db:
             db.execute(
                 "CREATE TABLE IF NOT EXISTS metadata(key TEXT PRIMARY KEY,value TEXT)"
             )

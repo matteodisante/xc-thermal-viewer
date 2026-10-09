@@ -64,7 +64,7 @@ def select_cell_summits(payload, bounds):
 @lru_cache(maxsize=24)
 def _read_extract(path, modified_ns):
     """Reuse parsed local data across height changes, refreshing after edits."""
-    return json.loads(path.read_text())
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def load_summits(cell, folder=None):

@@ -2,7 +2,6 @@
 
 import io
 import os
-import sqlite3
 from itertools import pairwise
 from threading import Event
 from types import SimpleNamespace
@@ -16,6 +15,7 @@ from PIL import Image
 
 from xc_thermal_viewer import route_index as ri
 from xc_thermal_viewer import route_scene as rs
+from xc_thermal_viewer.sqlite import connect
 from xc_thermal_viewer.thermal_index import CancelledError
 
 
@@ -64,7 +64,7 @@ def test_census_extrema_across_groups_and_scene_retains_gaps(
     assert rows.loc["a", "duration_s"] == 40
     assert rows.loc["a", "t0"] == 5
     assert rows.loc["a", "t1"] == 45
-    with sqlite3.connect(index.path) as db:
+    with connect(index.path) as db:
         assert db.execute(
             "SELECT row_group FROM parts WHERE flight_id='a'"
         ).fetchall() == [(0,), (1,), (2,)]

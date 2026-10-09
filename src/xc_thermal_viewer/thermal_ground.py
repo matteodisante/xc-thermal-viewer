@@ -18,6 +18,7 @@ import numpy as np
 from PIL import Image
 
 from .geography import TERRAIN_ORDER, classify_terrain
+from .sqlite import connect
 from .thermal_orography import DATA_DIRECTORY
 
 GROUND_REFERENCE = "ign-dem-cell-min-v1"
@@ -111,7 +112,7 @@ def terrain_reference(cell, folder=None):
             f"Missing IGN terrain for cell {cell.ix}/{cell.iy}; "
             "prepare its elevation raster with prepare_thermal_ridges.py first"
         )
-    provenance = json.loads(provenance_path.read_text())["provenance"]
+    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))["provenance"]
     if tuple(provenance["bounds_epsg2154"]) != cell.bounds:
         raise ValueError("Terrain provenance does not match the cell extent")
     raw = (folder / provenance["terrain_file"]).read_bytes()
@@ -188,7 +189,7 @@ def fetch_terrain_reference(cell, folder):
     (folder / provenance["terrain_file"]).write_bytes(raw)
     path = folder / f"ign-terrain-{cell.ix}-{cell.iy}.json"
     temporary = path.with_suffix(".building.json")
-    temporary.write_text(json.dumps({"provenance": provenance}))
+    temporary.write_text(json.dumps({"provenance": provenance}), encoding="utf-8")
     temporary.replace(path)
     return terrain_reference(cell, folder)
 
@@ -256,14 +257,14 @@ def upgrade_terrain_store(path, *, folder=None, progress=print):
         if not resume:
             temporary.unlink(missing_ok=True)
             progress("Copying saved edges and images for the terrain upgrade")
-            with sqlite3.connect(temporary) as target:
+            with connect(temporary) as target:
                 source.backup(target)
                 target.execute(
                     "INSERT OR REPLACE INTO metadata "
                     "VALUES ('terrain_upgrade_source',?)",
                     (identity,),
                 )
-    with sqlite3.connect(temporary) as db:
+    with connect(temporary) as db:
         db.execute("""CREATE TABLE IF NOT EXISTS terrain(
             ix INTEGER,iy INTEGER,metadata TEXT,PRIMARY KEY(ix,iy))""")
         rebased = db.execute(
@@ -301,7 +302,7 @@ def upgrade_terrain_store(path, *, folder=None, progress=print):
             )
         db.commit()
     prepare_daily(temporary, progress=progress)
-    with sqlite3.connect(temporary) as db:
+    with connect(temporary) as db:
         if db.execute("PRAGMA quick_check").fetchone() != ("ok",):
             raise ValueError("Terrain snapshot failed SQLite integrity check")
     temporary.replace(path)

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import io
 import json
-import sqlite3
 import time
 from contextlib import suppress
 from datetime import UTC, datetime
@@ -16,6 +15,7 @@ from pyproj import Transformer
 
 from .core.preproc.enu import LocalFrame
 from .geodesy import enu_to_geodetic
+from .sqlite import connect
 from .thermal_geometry import project
 from .thermal_regions import REGIONS, extent
 from .thermal_store import load_store
@@ -185,7 +185,7 @@ def prepare(
                 },
             )
         stage_start = time.perf_counter()
-        with sqlite3.connect(store.path.as_uri() + "?mode=ro", uri=True) as db:
+        with connect(store.path.as_uri() + "?mode=ro", uri=True) as db:
             rows = db.execute(
                 "SELECT ix,iy,edges FROM climbs WHERE source=?", (SOURCE,)
             )
@@ -225,7 +225,9 @@ def prepare(
         }
         for key, grid in grids.items()
     }
-    target.with_suffix(".json").write_text(json.dumps(report, indent=2) + "\n")
+    target.with_suffix(".json").write_text(
+        json.dumps(report, indent=2) + "\n", encoding="utf-8"
+    )
     progress(
         f"Wrote {target}: {report['output_bytes'] / 1e6:.2f} MB "
         f"in {report['elapsed_s']:.1f} s"

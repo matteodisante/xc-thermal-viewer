@@ -35,7 +35,7 @@ def fetch_relief(cache_dir, bounds, epsg, size, *, timeout=90):
     folder.mkdir(exist_ok=True)
     png, metadata = folder / f"{digest}.png", folder / f"{digest}.json"
     if png.is_file() and metadata.is_file():
-        info = json.loads(metadata.read_text())
+        info = json.loads(metadata.read_text(encoding="utf-8"))
         info.setdefault("cache_key", digest)
         return png.read_bytes(), info
     with urlopen(SERVICE + "/export?" + urlencode(params), timeout=timeout) as response:
@@ -56,7 +56,7 @@ def fetch_relief(cache_dir, bounds, epsg, size, *, timeout=90):
         "source_url": SOURCE_URL,
     }
     png.write_bytes(payload)
-    metadata.write_text(json.dumps(info))
+    metadata.write_text(json.dumps(info), encoding="utf-8")
     return payload, info
 
 

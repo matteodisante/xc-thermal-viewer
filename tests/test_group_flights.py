@@ -1,6 +1,5 @@
 """Launch cohorts must be disjoint, day-aware and independent of destinations."""
 
-import sqlite3
 from threading import Event
 from types import SimpleNamespace
 
@@ -11,6 +10,7 @@ import pytest
 from xc_thermal_viewer import group_flights as gf
 from xc_thermal_viewer import route_index as ri
 from xc_thermal_viewer import route_scene as rs
+from xc_thermal_viewer.sqlite import connect
 from xc_thermal_viewer.thermal_index import CancelledError
 
 
@@ -132,7 +132,7 @@ def test_catalog_uses_trimmed_clean_endpoints_cached_utc_and_atomic_publication(
             "trim_start": [300.0, 360.0],
         }
     )
-    with sqlite3.connect(clock) as db:
+    with connect(clock) as db:
         origins.to_sql("flights", db, index=False)
     monkeypatch.setattr(
         gf.thermal_index, "load_saved_index", lambda _: SimpleNamespace(path=clock)
@@ -183,7 +183,7 @@ def test_departure_only_census_keeps_destinations_outside_france(tmp_path):
             "z": 1000.0,
         }
     )
-    with sqlite3.connect(tmp_path / "index.sqlite3") as db:
+    with connect(tmp_path / "index.sqlite3") as db:
         db.execute(
             "CREATE TABLE parts(discipline,flight_id,row_group,t0,e0,n0,z0,t1,e1,n1,z1)"
         )

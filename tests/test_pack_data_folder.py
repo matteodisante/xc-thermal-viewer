@@ -2,7 +2,6 @@
 
 import json
 import runpy
-import sqlite3
 import sys
 from pathlib import Path
 
@@ -18,6 +17,7 @@ from xc_thermal_viewer.core.disciplines import (
     HANG_GLIDERS,
     PARAGLIDERS,
 )
+from xc_thermal_viewer.sqlite import connect
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts/pack_data_folder.py"
 
@@ -47,16 +47,16 @@ def _thesis_archive(root):
     (vilpellet / "model/parameters.json").write_text("{}")
     products = derived / "viewer/thermal-planes"
     products.mkdir(parents=True)
-    with sqlite3.connect(products / "thermal-cells.sqlite3") as db:
+    with connect(products / "thermal-cells.sqlite3") as db:
         db.execute("CREATE TABLE metadata (signature TEXT)")
         db.execute("INSERT INTO metadata VALUES ('old-census')")
-    with sqlite3.connect(products / "route-cells.sqlite3") as db:
+    with connect(products / "route-cells.sqlite3") as db:
         db.execute("CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT)")
         db.executemany(
             "INSERT INTO metadata VALUES (?,?)",
             [("signature", "old-routes"), ("complete", "yes")],
         )
-    with sqlite3.connect(products / "thermal-planes.sqlite3") as db:
+    with connect(products / "thermal-planes.sqlite3") as db:
         db.execute("CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT)")
         db.executemany(
             "INSERT INTO metadata VALUES (?,?)",
@@ -65,7 +65,7 @@ def _thesis_archive(root):
                 ("segmentation_signatures", '{"own":"hmm","vilpellet":"old-climbs"}'),
             ],
         )
-    with sqlite3.connect(products / "thermal-climbs.sqlite3") as db:
+    with connect(products / "thermal-climbs.sqlite3") as db:
         db.execute(
             "CREATE TABLE climbs (cache_key TEXT, discipline TEXT, flight_id TEXT, "
             "ix INTEGER, iy INTEGER, status TEXT, edges BLOB)"
@@ -113,12 +113,12 @@ def test_pack_copies_reads_only_and_restamps_for_another_computer(
     assert thermal_index.load_saved_index([PARAGLIDERS]) is not None
     assert route_index.load_saved_index([PARAGLIDERS]) is not None
     census = thermal_index.archive_signature([PARAGLIDERS])
-    with sqlite3.connect(products / "thermal-planes.sqlite3") as db:
+    with connect(products / "thermal-planes.sqlite3") as db:
         metadata = dict(db.execute("SELECT key,value FROM metadata"))
     assert metadata["archive_signature"] == census
     keys = json.loads(metadata["segmentation_signatures"])
     assert list(keys) == ["vilpellet"]
-    with sqlite3.connect(products / "thermal-climbs.sqlite3") as db:
+    with connect(products / "thermal-climbs.sqlite3") as db:
         rows = db.execute("SELECT cache_key, edges FROM climbs").fetchall()
     assert rows == [(keys["vilpellet"], b"x")]
     with np.load(products / "route-thermal-duration-vilpellet.npz") as saved:

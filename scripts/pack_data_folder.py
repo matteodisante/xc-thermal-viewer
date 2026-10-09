@@ -49,6 +49,7 @@ import pyarrow.parquet as pq
 
 from xc_thermal_viewer import datafolder
 from xc_thermal_viewer.core.disciplines import DISCIPLINES, HANG_GLIDERS, PARAGLIDERS
+from xc_thermal_viewer.sqlite import connect
 
 #: Files every discipline root contributes, relative to the root.
 INPUTS = (
@@ -262,7 +263,7 @@ def _stored(products: Path) -> dict:
         path = products / name
         if not path.is_file():
             return {}
-        with sqlite3.connect(path) as db:
+        with connect(path) as db:
             rows = db.execute("SELECT * FROM metadata").fetchall()
         return dict(rows) if rows and len(rows[0]) == 2 else {"signature": rows[0][0]}
 
@@ -316,7 +317,7 @@ def _new_fingerprints(disciplines) -> dict:
 
 def _restamp_sqlite(path: Path, tables, mapping: dict) -> None:
     """Replace old fingerprints by new ones in the text columns of ``tables``."""
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         present = {r[0] for r in db.execute("SELECT name FROM sqlite_master")}
         for table in tables:
             if table not in present:
@@ -377,7 +378,7 @@ def _copy_climbs(source: Path, target: Path, old: str, new: str) -> int:
     """Copy only the current Vilpellet climbs, re-keyed; returns the row count."""
     temporary = target.with_name(f".{target.name}.copying")
     temporary.unlink(missing_ok=True)
-    with sqlite3.connect(temporary.resolve().as_uri(), uri=True) as db:
+    with connect(temporary.resolve().as_uri(), uri=True) as db:
         db.execute("""
             CREATE TABLE climbs (
                 cache_key TEXT, discipline TEXT, flight_id TEXT,
@@ -469,7 +470,8 @@ def main() -> int:
         for linked in (copies[name], roots[name] if args.link else None):
             if linked and linked.stat().st_dev != disk.stat().st_dev:
                 parser.error(f"{linked} is not on the destination disk: no links")
-    block = os.statvfs(disk).f_frsize
+    # Windows has no statvfs; 4 KiB is the usual NTFS cluster.
+    block = os.statvfs(disk).f_frsize if hasattr(os, "statvfs") else 4096
     needed = sum(
         _space_needed(
             pairs, link=args.link, root=roots[name], reuse=copies[name], block=block
@@ -539,7 +541,9 @@ def main() -> int:
         "checked_against_thesis": probe is not None,
         "products": report,
     }
-    (destination / "manifest.json").write_text(json.dumps(manifest, indent=2))
+    (destination / "manifest.json").write_text(
+        json.dumps(manifest, indent=2), encoding="utf-8"
+    )
     for key, state in report.items():
         print(f"  {key}: {state}")
     print(f"Ready: {destination}")

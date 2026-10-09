@@ -1,5 +1,6 @@
 """Ground quality screening must not manufacture a new launch altitude."""
 
+from xc_thermal_viewer.sqlite import connect
 from xc_thermal_viewer.thermal_ranking import launch_quality
 
 
@@ -32,14 +33,13 @@ def test_receiver_invalid_origin_is_excluded_but_missing_support_is_explicit(tmp
 def test_dem_ranking_includes_cells_without_starts_and_stops_after_all_bands(
     tmp_path, monkeypatch
 ):
-    import sqlite3
 
     from xc_thermal_viewer.thermal_ground import TERRAIN_RANKING
     from xc_thermal_viewer.thermal_index import ThermalIndex, _create_tables
     from xc_thermal_viewer.thermal_ranking import rank_cells
 
     path = tmp_path / "census.sqlite3"
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         _create_tables(db)
         # Highest-population cell has a misleading 188 m start, and all other
         # cells have no starts at all. None may be assigned by launch altitude.
@@ -83,14 +83,13 @@ def test_dem_ranking_includes_cells_without_starts_and_stops_after_all_bands(
 
 
 def test_vilpellet_runs_determine_ranking_instead_of_visitors(tmp_path, monkeypatch):
-    import sqlite3
 
     from xc_thermal_viewer.thermal_ground import CLIMB_RANKING
     from xc_thermal_viewer.thermal_index import ThermalIndex, _create_tables
     from xc_thermal_viewer.thermal_ranking import rank_cells
 
     path, activity = tmp_path / "census.sqlite3", tmp_path / "activity.sqlite3"
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         _create_tables(db)
         for ix, population in enumerate([100, 2, 3, 4, 5, 6]):
             db.executemany(
@@ -100,7 +99,7 @@ def test_vilpellet_runs_determine_ranking_instead_of_visitors(tmp_path, monkeypa
                     for i in range(population)
                 ],
             )
-    with sqlite3.connect(activity) as db:
+    with connect(activity) as db:
         db.executescript("""
             CREATE TABLE metadata(key TEXT,value TEXT);
             INSERT INTO metadata VALUES ('ready','1'),('signature','test');
@@ -132,7 +131,6 @@ def test_vilpellet_runs_determine_ranking_instead_of_visitors(tmp_path, monkeypa
 def test_cell_beyond_dem_coverage_is_skipped_but_other_terrain_errors_abort(
     tmp_path, monkeypatch
 ):
-    import sqlite3
 
     import pytest
 
@@ -141,7 +139,7 @@ def test_cell_beyond_dem_coverage_is_skipped_but_other_terrain_errors_abort(
     from xc_thermal_viewer.thermal_ranking import rank_cells
 
     path = tmp_path / "census.sqlite3"
-    with sqlite3.connect(path) as db:
+    with connect(path) as db:
         _create_tables(db)
         for ix, population in enumerate([6, 5, 4, 3, 2]):
             db.executemany(

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import sqlite3
 from dataclasses import dataclass
 from uuid import uuid4
 
@@ -17,6 +16,7 @@ from . import thermal_index
 from .route_index import PAIR_COLUMNS, _endpoint_rows
 from .route_scene import RouteScene, load_background, read_tracks, scene_bounds
 from .route_times import with_flight_times
+from .sqlite import connect
 from .thermal_daily import PARIS
 from .thermal_index import _check_cancel
 
@@ -86,7 +86,7 @@ def load_catalog(index, *, prepare=False, progress=lambda _: None, cancel=None):
             "to recover IGC dates."
         )
     progress("Locating cleaned departures on the existing 5 km grid…")
-    with sqlite3.connect(index.path) as db:
+    with connect(index.path) as db:
         rows = _endpoint_rows(
             db, index.disciplines, progress, cancel, departure_only=True
         )
@@ -94,9 +94,7 @@ def load_catalog(index, *, prepare=False, progress=lambda _: None, cancel=None):
     _check_cancel(cancel)
     if clocks is not None:
         progress("Reusing verified IGC clock origins from the thermal index…")
-        with sqlite3.connect(
-            clocks.path.resolve().as_uri() + "?mode=ro", uri=True
-        ) as db:
+        with connect(clocks.path.resolve().as_uri() + "?mode=ro", uri=True) as db:
             origins = pd.read_sql_query(
                 "SELECT discipline,flight_id,start_utc,trim_start FROM flights", db
             )

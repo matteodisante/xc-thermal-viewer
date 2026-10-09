@@ -88,7 +88,9 @@ def main():
             "note": "Named summits; not a complete ridge network or DEM maxima.",
         }
         temporary = path.with_suffix(".tmp")
-        temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+        temporary.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
         temporary.replace(path)
         print(
             f"{cell.ix}/{cell.iy}: {len(payload['features'])} summits, {len(raw)} bytes"
